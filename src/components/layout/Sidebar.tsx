@@ -42,32 +42,32 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-[#E2E8F0] bg-white transition-all duration-200 ease-in-out md:static',
+        'fixed inset-y-0 left-0 z-40 flex flex-col border-r border-[#E5E3F2] bg-white transition-all duration-200 ease-in-out md:static',
         isSidebarCollapsed ? 'w-16' : 'w-60',
         'shrink-0'
       )}
     >
       {/* Brand logo / header */}
-      <div className="flex h-14 items-center justify-between px-4 border-b border-[#E2E8F0]">
+      <div className="flex h-14 items-center justify-between px-4 border-b border-[#E5E3F2]">
         {!isSidebarCollapsed && (
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded bg-[#2563EB] flex items-center justify-center text-white font-bold text-sm tracking-wider">
+            <div className="h-7 w-7 rounded bg-[#6C5CE7] flex items-center justify-center text-white font-bold text-sm tracking-wider shadow-xs">
               W
             </div>
             <div>
-              <span className="font-bold text-sm text-[#0F172A] tracking-tight">WORKFORCE</span>
-              <span className="text-[10px] block text-[#64748B] font-semibold -mt-1 tracking-wider uppercase">UK Operations</span>
+              <span className="font-bold text-sm text-[#171A2B] tracking-tight">WORKFORCE</span>
+              <span className="text-[10px] block text-[#687086] font-semibold -mt-1 tracking-wider uppercase">UK Operations</span>
             </div>
           </div>
         )}
         {isSidebarCollapsed && (
-          <div className="mx-auto h-7 w-7 rounded bg-[#2563EB] flex items-center justify-center text-white font-bold text-sm">
+          <div className="mx-auto h-7 w-7 rounded bg-[#6C5CE7] flex items-center justify-center text-white font-bold text-sm shadow-xs">
             W
           </div>
         )}
         <button
           onClick={toggleSidebar}
-          className="hidden md:flex h-6 w-6 items-center justify-center rounded text-[#64748B] hover:bg-[#F1F5F9] hover:text-[#0F172A] transition-colors"
+          className="hidden md:flex h-6 w-6 items-center justify-center rounded text-[#687086] hover:bg-[#F5F3FF] hover:text-[#171A2B] transition-colors"
           aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <ChevronLeft
@@ -89,25 +89,25 @@ export function Sidebar() {
               className={cn(
                 'group flex items-center gap-3 px-3 py-2 rounded text-xs font-medium transition-colors select-none',
                 isActive
-                  ? 'bg-[#EFF6FF] text-[#2563EB] font-semibold'
-                  : 'text-[#475569] hover:bg-[#F8FAFC] hover:text-[#0F172A]'
+                  ? 'bg-[#EDE9FE] text-[#6C5CE7] font-semibold'
+                  : 'text-[#687086] hover:bg-[#F5F3FF] hover:text-[#171A2B]'
               )}
               title={isSidebarCollapsed ? item.label : undefined}
             >
               <Icon
                 className={cn(
                   'h-4 w-4 shrink-0 transition-colors',
-                  isActive ? 'text-[#2563EB]' : 'text-[#64748B] group-hover:text-[#0F172A]'
+                  isActive ? 'text-[#6C5CE7]' : 'text-[#687086] group-hover:text-[#171A2B]'
                 )}
               />
               {!isSidebarCollapsed && <span className="flex-1 truncate">{item.label}</span>}
               {!isSidebarCollapsed && item.badge && (
-                <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-[#F1F5F9] text-[#475569]">
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-[#F5F3FF] text-[#687086] border border-[#E5E3F2]">
                   {item.badge}
                 </span>
               )}
               {!isSidebarCollapsed && item.alert && (
-                <span className="flex h-2 w-2 rounded-full bg-[#D97706]" title="Compliance Alert" />
+                <span className="flex h-2 w-2 rounded-full bg-[#F4A261]" title="Compliance Alert" />
               )}
             </Link>
           );
@@ -116,9 +116,9 @@ export function Sidebar() {
 
       {/* Footer status */}
       {!isSidebarCollapsed && (
-        <div className="p-3 border-t border-[#E2E8F0] bg-[#F8FAFC]">
-          <div className="flex items-center gap-2 text-[11px] text-[#64748B]">
-            <ShieldAlert className="h-3.5 w-3.5 text-[#16A34A]" />
+        <div className="p-3 border-t border-[#E5E3F2] bg-[#F5F3FF]">
+          <div className="flex items-center gap-2 text-[11px] text-[#687086]">
+            <ShieldAlert className="h-3.5 w-3.5 text-[#18B887]" />
             <span>SIA Compliance: 98.4%</span>
           </div>
         </div>

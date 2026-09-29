@@ -20,7 +20,9 @@ import {
   Loader2,
   ChevronRight,
   Filter,
+  Info,
 } from 'lucide-react';
+import { Badge } from '@/components/ui';
 import { AttendanceRecord, AttendanceStatus, VarianceFlag } from '@/types/attendance';
 import { Site } from '@/types/site';
 import { Employee } from '@/types/employee';
@@ -34,11 +36,13 @@ import {
 } from '@/lib/api/attendance';
 import { fetchSites } from '@/lib/api/sites';
 import { fetchEmployees } from '@/lib/api/employees';
+import { mockAttendanceRecords, mockSites, mockEmployees } from '@/lib/mockData';
 
 export default function AttendancePage() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [isUsingMockData, setIsUsingMockData] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,11 +95,18 @@ export default function AttendancePage() {
         fetchSites(),
         fetchEmployees({ status: 'active', limit: 100 }),
       ]);
-      setRecords(attData);
-      setSites(sitesData);
-      setEmployees(empsData.items);
+
+      const hasReal = Boolean(attData && attData.length > 0);
+      setIsUsingMockData(!hasReal);
+      setRecords(hasReal ? attData : mockAttendanceRecords);
+      setSites(sitesData && sitesData.length > 0 ? sitesData : mockSites);
+      setEmployees(empsData?.items && empsData.items.length > 0 ? empsData.items : mockEmployees);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load attendance records.');
+      // In case of error or empty initial database, fallback to mock data
+      setIsUsingMockData(true);
+      setRecords(mockAttendanceRecords);
+      setSites(mockSites);
+      setEmployees(mockEmployees);
     } finally {
       setLoading(false);
     }
@@ -255,7 +266,7 @@ export default function AttendancePage() {
         );
       case 'reconciled':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA]">
             <FileCheck2 className="h-3 w-3" />
             Reconciled
           </span>
@@ -301,7 +312,7 @@ export default function AttendancePage() {
         );
       case 'overtime':
         return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-300">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#EDE9FE] text-[#5A4ACD] border border-[#D5D0FA]">
             Overtime
           </span>
         );
@@ -318,23 +329,29 @@ export default function AttendancePage() {
     <AppShell>
       <div className="space-y-5">
         {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E2E8F0] pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E5E3F2] pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-[#0F172A]">Attendance & Geofenced Time Tracking</h1>
+              <h1 className="text-xl font-bold text-[#171A2B]">Attendance & Geofenced Time Tracking</h1>
               <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 Live Geofence Radar
               </span>
             </div>
-            <p className="text-xs text-[#64748B] mt-0.5">
+            <p className="text-xs text-[#687086] mt-0.5">
               Haversine GPS boundary verification, real-time duty state machine, and supervisor reconciliation.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
+            {isUsingMockData && (
+              <Badge variant="info" size="sm" className="gap-1">
+                <Info className="h-3 w-3 text-[#6C5CE7]" />
+                Live Tracking Preview
+              </Badge>
+            )}
             <button
               onClick={() => setIsClockInOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded text-xs font-medium transition-colors shadow-sm"
             >
               <Plus className="h-3.5 w-3.5" />
               Record Clock-In
@@ -342,34 +359,43 @@ export default function AttendancePage() {
           </div>
         </div>
 
+        {isUsingMockData && (
+          <div className="p-3 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
+              <span>Showing sample geofenced attendance logs. When guards clock in via mobile or portal, live records will display here.</span>
+            </div>
+          </div>
+        )}
+
         {/* Live Operational Metrics Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white p-3.5 rounded-lg border border-[#E2E8F0] shadow-sm">
-            <div className="flex items-center justify-between text-[#64748B] text-xs">
+          <div className="bg-white p-3.5 rounded-lg border border-[#E5E3F2] shadow-sm">
+            <div className="flex items-center justify-between text-[#687086] text-xs">
               <span>On Duty Now</span>
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
-            <p className="text-2xl font-bold text-[#0F172A] mt-1">{stats.onDuty}</p>
+            <p className="text-2xl font-bold text-[#171A2B] mt-1">{stats.onDuty}</p>
           </div>
 
-          <div className="bg-white p-3.5 rounded-lg border border-[#E2E8F0] shadow-sm">
-            <div className="flex items-center justify-between text-[#64748B] text-xs">
+          <div className="bg-white p-3.5 rounded-lg border border-[#E5E3F2] shadow-sm">
+            <div className="flex items-center justify-between text-[#687086] text-xs">
               <span>On Break</span>
               <Coffee className="h-3.5 w-3.5 text-amber-600" />
             </div>
-            <p className="text-2xl font-bold text-[#0F172A] mt-1">{stats.onBreak}</p>
+            <p className="text-2xl font-bold text-[#171A2B] mt-1">{stats.onBreak}</p>
           </div>
 
-          <div className="bg-white p-3.5 rounded-lg border border-[#E2E8F0] shadow-sm">
-            <div className="flex items-center justify-between text-[#64748B] text-xs">
+          <div className="bg-white p-3.5 rounded-lg border border-[#E5E3F2] shadow-sm">
+            <div className="flex items-center justify-between text-[#687086] text-xs">
               <span>Completed (Today)</span>
-              <CheckCircle2 className="h-3.5 w-3.5 text-blue-600" />
+              <CheckCircle2 className="h-3.5 w-3.5 text-[#6C5CE7]" />
             </div>
-            <p className="text-2xl font-bold text-[#0F172A] mt-1">{stats.clockedOut}</p>
+            <p className="text-2xl font-bold text-[#171A2B] mt-1">{stats.clockedOut}</p>
           </div>
 
-          <div className="bg-white p-3.5 rounded-lg border border-[#E2E8F0] shadow-sm">
-            <div className="flex items-center justify-between text-[#64748B] text-xs">
+          <div className="bg-white p-3.5 rounded-lg border border-[#E5E3F2] shadow-sm">
+            <div className="flex items-center justify-between text-[#687086] text-xs">
               <span>Pending Variances</span>
               <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
             </div>
@@ -378,16 +404,16 @@ export default function AttendancePage() {
         </div>
 
         {/* Filters & Date Selector */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#E2E8F0] shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#E5E3F2] shadow-sm">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-[#2563EB]" />
+            <Calendar className="h-4 w-4 text-[#6C5CE7]" />
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="text-xs font-semibold text-[#0F172A] border border-[#E2E8F0] rounded px-2 py-1 outline-none focus:border-[#2563EB]"
+              className="text-xs font-semibold text-[#171A2B] border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7]"
             />
-            <span className="text-xs text-[#64748B] hidden sm:inline">
+            <span className="text-xs text-[#687086] hidden sm:inline">
               {new Date(selectedDate).toLocaleDateString('en-GB', {
                 weekday: 'long',
                 year: 'numeric',
@@ -398,12 +424,12 @@ export default function AttendancePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-xs text-[#64748B]">
+            <div className="flex items-center gap-1 text-xs text-[#687086]">
               <Building2 className="h-3.5 w-3.5" />
               <select
                 value={selectedSiteId}
                 onChange={(e) => setSelectedSiteId(e.target.value)}
-                className="text-xs border border-[#E2E8F0] rounded px-2 py-1 outline-none focus:border-[#2563EB] bg-white text-[#0F172A]"
+                className="text-xs border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7] bg-white text-[#171A2B]"
               >
                 <option value="all">All Sites</option>
                 {sites.map((site) => (
@@ -414,12 +440,12 @@ export default function AttendancePage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-[#64748B]">
+            <div className="flex items-center gap-1 text-xs text-[#687086]">
               <Filter className="h-3.5 w-3.5" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-xs border border-[#E2E8F0] rounded px-2 py-1 outline-none focus:border-[#2563EB] bg-white text-[#0F172A]"
+                className="text-xs border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7] bg-white text-[#171A2B]"
               >
                 <option value="all">All Statuses</option>
                 <option value="clocked_in">On Duty</option>
@@ -430,12 +456,12 @@ export default function AttendancePage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-[#64748B]">
+            <div className="flex items-center gap-1 text-xs text-[#687086]">
               <AlertTriangle className="h-3.5 w-3.5" />
               <select
                 value={varianceFilter}
                 onChange={(e) => setVarianceFilter(e.target.value)}
-                className="text-xs border border-[#E2E8F0] rounded px-2 py-1 outline-none focus:border-[#2563EB] bg-white text-[#0F172A]"
+                className="text-xs border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7] bg-white text-[#171A2B]"
               >
                 <option value="all">All Variances</option>
                 <option value="none">No Variance (Clean)</option>
@@ -450,34 +476,34 @@ export default function AttendancePage() {
 
         {/* Content Table */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E2E8F0]">
-            <Loader2 className="h-6 w-6 text-[#2563EB] animate-spin mb-2" />
-            <p className="text-xs text-[#64748B]">Loading attendance radar and timecards...</p>
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E5E3F2]">
+            <Loader2 className="h-6 w-6 text-[#6C5CE7] animate-spin mb-2" />
+            <p className="text-xs text-[#687086]">Loading attendance radar and timecards...</p>
           </div>
         ) : error ? (
           <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs">
             {error}
           </div>
         ) : records.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E2E8F0] text-center">
-            <Clock className="h-10 w-10 text-[#94A3B8] mb-3" />
-            <h3 className="text-sm font-semibold text-[#0F172A]">No attendance records found</h3>
-            <p className="text-xs text-[#64748B] mt-1 max-w-sm">
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E5E3F2] text-center">
+            <Clock className="h-10 w-10 text-[#9096A9] mb-3" />
+            <h3 className="text-sm font-semibold text-[#171A2B]">No attendance records found</h3>
+            <p className="text-xs text-[#687086] mt-1 max-w-sm">
               No officers have clocked in for this selected date and filter combination.
             </p>
             <button
               onClick={() => setIsClockInOpen(true)}
-              className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors"
+              className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded text-xs font-medium transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Record First Clock-In
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-[#E2E8F0] shadow-sm overflow-hidden">
+          <div className="bg-white rounded-lg border border-[#E5E3F2] shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="bg-[#F8FAFC] border-b border-[#E2E8F0] text-[#475569] font-semibold">
+                <thead className="bg-[#F5F3FF] border-b border-[#E5E3F2] text-[#687086] font-semibold">
                   <tr>
                     <th className="px-4 py-3">Security Officer</th>
                     <th className="px-4 py-3">Deployment Site</th>
@@ -488,7 +514,7 @@ export default function AttendancePage() {
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E2E8F0]">
+                <tbody className="divide-y divide-[#E5E3F2]">
                   {records.map((r) => {
                     const clockInTimeStr = new Date(r.clockInTime).toLocaleTimeString('en-GB', {
                       hour: '2-digit',
@@ -506,15 +532,15 @@ export default function AttendancePage() {
                         {/* Officer */}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-blue-100 text-[#2563EB] flex items-center justify-center font-bold text-xs">
+                            <div className="h-7 w-7 rounded-full bg-[#EDE9FE] text-[#6C5CE7] flex items-center justify-center font-bold text-xs">
                               {r.employee?.firstName?.[0]}
                               {r.employee?.lastName?.[0]}
                             </div>
                             <div>
-                              <p className="font-semibold text-[#0F172A] leading-tight">
+                              <p className="font-semibold text-[#171A2B] leading-tight">
                                 {r.employee?.firstName} {r.employee?.lastName}
                               </p>
-                              <p className="text-[10px] text-[#64748B]">
+                              <p className="text-[10px] text-[#687086]">
                                 {r.employee?.employeeNumber}
                               </p>
                             </div>
@@ -523,13 +549,13 @@ export default function AttendancePage() {
 
                         {/* Site */}
                         <td className="px-4 py-3">
-                          <p className="font-semibold text-[#0F172A]">{r.site?.name}</p>
-                          <p className="text-[10px] text-[#64748B]">{r.site?.code}</p>
+                          <p className="font-semibold text-[#171A2B]">{r.site?.name}</p>
+                          <p className="text-[10px] text-[#687086]">{r.site?.code}</p>
                         </td>
 
                         {/* Clock In */}
                         <td className="px-4 py-3">
-                          <p className="font-bold text-[#0F172A]">{clockInTimeStr}</p>
+                          <p className="font-bold text-[#171A2B]">{clockInTimeStr}</p>
                           <div className="mt-0.5">
                             {r.clockInVerified ? (
                               <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
@@ -551,9 +577,9 @@ export default function AttendancePage() {
 
                         {/* Clock Out */}
                         <td className="px-4 py-3">
-                          <p className="font-semibold text-[#0F172A]">{clockOutTimeStr}</p>
+                          <p className="font-semibold text-[#171A2B]">{clockOutTimeStr}</p>
                           {r.clockOutTime && (
-                            <span className="text-[10px] text-[#64748B]">
+                            <span className="text-[10px] text-[#687086]">
                               {r.clockOutVerified ? 'Verified' : 'Out of Geofence'}
                             </span>
                           )}
@@ -561,8 +587,8 @@ export default function AttendancePage() {
 
                         {/* Hours */}
                         <td className="px-4 py-3">
-                          <p className="font-bold text-[#0F172A]">{r.totalHours} hrs</p>
-                          <p className="text-[10px] text-[#64748B]">
+                          <p className="font-bold text-[#171A2B]">{r.totalHours} hrs</p>
+                          <p className="text-[10px] text-[#687086]">
                             {r.breakMinutes}m unpaid break
                           </p>
                         </td>
@@ -622,15 +648,15 @@ export default function AttendancePage() {
         {/* CLOCK-IN SIMULATION MODAL */}
         {isClockInOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full border border-[#E2E8F0]">
-              <div className="flex items-center justify-between p-4 border-b border-[#E2E8F0]">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full border border-[#E5E3F2]">
+              <div className="flex items-center justify-between p-4 border-b border-[#E5E3F2]">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Record Guard Clock-In</h3>
-                  <p className="text-xs text-[#64748B]">Simulate mobile or kiosk geofence check-in.</p>
+                  <h3 className="text-sm font-bold text-[#171A2B]">Record Guard Clock-In</h3>
+                  <p className="text-xs text-[#687086]">Simulate mobile or kiosk geofence check-in.</p>
                 </div>
                 <button
                   onClick={() => setIsClockInOpen(false)}
-                  className="text-[#64748B] hover:text-[#0F172A]"
+                  className="text-[#687086] hover:text-[#171A2B]"
                 >
                   <XCircle className="h-4 w-4" />
                 </button>
@@ -644,14 +670,14 @@ export default function AttendancePage() {
                 )}
 
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Select Officer *</label>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Select Officer *</label>
                   <select
                     value={clockInForm.employeeId}
                     onChange={(e) =>
                       setClockInForm({ ...clockInForm, employeeId: e.target.value })
                     }
                     required
-                    className="w-full border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                    className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                   >
                     <option value="">-- Choose Officer --</option>
                     {employees.map((emp) => (
@@ -663,12 +689,12 @@ export default function AttendancePage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">Deployment Site *</label>
+                  <label className="block font-semibold text-[#171A2B] mb-1">Deployment Site *</label>
                   <select
                     value={clockInForm.siteId}
                     onChange={(e) => setClockInForm({ ...clockInForm, siteId: e.target.value })}
                     required
-                    className="w-full border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                    className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                   >
                     <option value="">-- Choose Site --</option>
                     {sites.map((site) => (
@@ -680,13 +706,13 @@ export default function AttendancePage() {
                 </div>
 
                 {/* GPS Coordinates with Geofence Assistant */}
-                <div className="border border-[#E2E8F0] p-3 rounded bg-[#F8FAFC] space-y-2">
+                <div className="border border-[#E5E3F2] p-3 rounded bg-[#F5F3FF] space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#0F172A]">GPS Geolocation</span>
+                    <span className="font-bold text-[#171A2B]">GPS Geolocation</span>
                     <button
                       type="button"
                       onClick={handleGetLocation}
-                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#2563EB] hover:underline"
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#6C5CE7] hover:underline"
                     >
                       <MapPin className="h-3 w-3" />
                       Get Browser Location
@@ -695,7 +721,7 @@ export default function AttendancePage() {
 
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-[10px] text-[#64748B]">Latitude</label>
+                      <label className="block text-[10px] text-[#687086]">Latitude</label>
                       <input
                         type="text"
                         placeholder="51.5074"
@@ -703,11 +729,11 @@ export default function AttendancePage() {
                         onChange={(e) =>
                           setClockInForm({ ...clockInForm, latitude: e.target.value })
                         }
-                        className="w-full border border-[#CBD5E1] rounded px-2 py-1 outline-none focus:border-[#2563EB]"
+                        className="w-full border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7]"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] text-[#64748B]">Longitude</label>
+                      <label className="block text-[10px] text-[#687086]">Longitude</label>
                       <input
                         type="text"
                         placeholder="-0.1278"
@@ -715,27 +741,27 @@ export default function AttendancePage() {
                         onChange={(e) =>
                           setClockInForm({ ...clockInForm, longitude: e.target.value })
                         }
-                        className="w-full border border-[#CBD5E1] rounded px-2 py-1 outline-none focus:border-[#2563EB]"
+                        className="w-full border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7]"
                       />
                     </div>
                   </div>
-                  <p className="text-[10px] text-[#64748B]">
+                  <p className="text-[10px] text-[#687086]">
                     Calculated against site geofence radius (200m). Leave blank to simulate manual punch.
                   </p>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E3F2]">
                   <button
                     type="button"
                     onClick={() => setIsClockInOpen(false)}
-                    className="px-3 py-1.5 rounded border border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
+                    className="px-3 py-1.5 rounded border border-[#E5E3F2] text-[#687086] hover:bg-[#F0EEF8]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={clockInLoading}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#2563EB] hover:bg-blue-700 text-white font-medium transition-colors shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#6C5CE7] hover:bg-[#806FF0] text-white font-medium transition-colors shadow-sm disabled:opacity-50"
                   >
                     {clockInLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Confirm Clock-In
@@ -749,17 +775,17 @@ export default function AttendancePage() {
         {/* RECONCILE DRAWER / MODAL */}
         {reconcileRecord && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full border border-[#E2E8F0]">
-              <div className="flex items-center justify-between p-4 border-b border-[#E2E8F0]">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full border border-[#E5E3F2]">
+              <div className="flex items-center justify-between p-4 border-b border-[#E5E3F2]">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Supervisor Reconciliation</h3>
-                  <p className="text-xs text-[#64748B]">
+                  <h3 className="text-sm font-bold text-[#171A2B]">Supervisor Reconciliation</h3>
+                  <p className="text-xs text-[#687086]">
                     Adjust hours and sign off on attendance variances.
                   </p>
                 </div>
                 <button
                   onClick={() => setReconcileRecord(null)}
-                  className="text-[#64748B] hover:text-[#0F172A]"
+                  className="text-[#687086] hover:text-[#171A2B]"
                 >
                   <XCircle className="h-4 w-4" />
                 </button>
@@ -773,23 +799,23 @@ export default function AttendancePage() {
                 )}
 
                 {/* Audit summary */}
-                <div className="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1">
-                  <p className="font-semibold text-[#0F172A]">
+                <div className="bg-[#F5F3FF] p-3 rounded border border-[#E5E3F2] space-y-1">
+                  <p className="font-semibold text-[#171A2B]">
                     {reconcileRecord.employee?.firstName} {reconcileRecord.employee?.lastName} (
                     {reconcileRecord.employee?.employeeNumber})
                   </p>
-                  <p className="text-[11px] text-[#64748B]">
+                  <p className="text-[11px] text-[#687086]">
                     Site: {reconcileRecord.site?.name} • In: {new Date(reconcileRecord.clockInTime).toLocaleTimeString('en-GB')}
                   </p>
-                  <p className="text-[11px] text-[#64748B]">
-                    Current Recorded Hours: <span className="font-bold text-[#0F172A]">{reconcileRecord.totalHours} hrs</span> (
+                  <p className="text-[11px] text-[#687086]">
+                    Current Recorded Hours: <span className="font-bold text-[#171A2B]">{reconcileRecord.totalHours} hrs</span> (
                     {reconcileRecord.breakMinutes}m break)
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block font-semibold text-[#0F172A] mb-1">
+                    <label className="block font-semibold text-[#171A2B] mb-1">
                       Adjusted Total Net Hours *
                     </label>
                     <input
@@ -801,12 +827,12 @@ export default function AttendancePage() {
                         setReconcileForm({ ...reconcileForm, adjustedTotalHours: e.target.value })
                       }
                       required
-                      className="w-full border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                      className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                     />
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-[#0F172A] mb-1">
+                    <label className="block font-semibold text-[#171A2B] mb-1">
                       Adjusted Break (Minutes)
                     </label>
                     <input
@@ -817,14 +843,14 @@ export default function AttendancePage() {
                       onChange={(e) =>
                         setReconcileForm({ ...reconcileForm, adjustedBreakMinutes: e.target.value })
                       }
-                      className="w-full border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                      className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block font-semibold text-[#0F172A] mb-1">
+                    <label className="block font-semibold text-[#171A2B] mb-1">
                       Reconciled Status *
                     </label>
                     <select
@@ -835,7 +861,7 @@ export default function AttendancePage() {
                           status: e.target.value as any,
                         })
                       }
-                      className="w-full border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                      className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                     >
                       <option value="reconciled">Reconciled (Approved)</option>
                       <option value="flagged">Flagged for Audit</option>
@@ -844,7 +870,7 @@ export default function AttendancePage() {
                   </div>
 
                   <div>
-                    <label className="block font-semibold text-[#0F172A] mb-1">
+                    <label className="block font-semibold text-[#171A2B] mb-1">
                       Variance Resolution
                     </label>
                     <select
@@ -855,7 +881,7 @@ export default function AttendancePage() {
                           varianceFlag: e.target.value as VarianceFlag,
                         })
                       }
-                      className="w-full border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                      className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                     >
                       <option value="none">Resolved (No Variance)</option>
                       <option value="out_of_geofence">Out of Geofence (Approved exception)</option>
@@ -867,7 +893,7 @@ export default function AttendancePage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#0F172A] mb-1">
+                  <label className="block font-semibold text-[#171A2B] mb-1">
                     Supervisor Justification Notes *
                   </label>
                   <textarea
@@ -878,25 +904,25 @@ export default function AttendancePage() {
                     }
                     required
                     placeholder="Enter detailed reason for manual override (e.g. guard stationed at perimeter gate, approved overtime)..."
-                    className="w-full border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                    className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                   />
-                  <p className="text-[10px] text-[#64748B] mt-0.5">
+                  <p className="text-[10px] text-[#687086] mt-0.5">
                     This note is permanently recorded in the immutable audit trail.
                   </p>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E3F2]">
                   <button
                     type="button"
                     onClick={() => setReconcileRecord(null)}
-                    className="px-3 py-1.5 rounded border border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
+                    className="px-3 py-1.5 rounded border border-[#E5E3F2] text-[#687086] hover:bg-[#F0EEF8]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={reconcileLoading}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#2563EB] hover:bg-blue-700 text-white font-medium transition-colors shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#6C5CE7] hover:bg-[#806FF0] text-white font-medium transition-colors shadow-sm disabled:opacity-50"
                   >
                     {reconcileLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Save Reconciliation

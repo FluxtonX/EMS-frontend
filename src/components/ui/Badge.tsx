@@ -7,12 +7,12 @@ export const badgeVariants = cva(
   {
     variants: {
       variant: {
-        neutral: 'bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1]',
-        success: 'bg-[#DCFCE7] text-[#15803D] border border-[#BBF7D0]',
-        warning: 'bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]',
-        danger: 'bg-[#FEE2E2] text-[#B91C1C] border border-[#FECACA]',
-        info: 'bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]',
-        primary: 'bg-[#EFF6FF] text-[#1D4ED8] border border-[#BFDBFE]',
+        neutral: 'bg-[#F5F3FF] text-[#687086] border border-[#E5E3F2]',
+        success: 'bg-[#E8F8F3] text-[#18B887] border border-[#A3E5D0]',
+        warning: 'bg-[#FEF6EE] text-[#F4A261] border border-[#FADBBF]',
+        danger: 'bg-[#FDF0F1] text-[#EF6B73] border border-[#FAC3C6]',
+        info: 'bg-[#F0EEFE] text-[#6C5CE7] border border-[#D5D0FA]',
+        primary: 'bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA]',
       },
       size: {
         sm: 'px-2 py-0.5 text-[11px] gap-1',
@@ -39,12 +39,12 @@ export function Badge({ className, variant, size, dot, children, ...props }: Bad
         <span
           className={cn(
             'h-1.5 w-1.5 rounded-full',
-            variant === 'success' && 'bg-[#16A34A]',
-            variant === 'warning' && 'bg-[#D97706]',
-            variant === 'danger' && 'bg-[#DC2626]',
-            variant === 'info' && 'bg-[#0284C7]',
-            variant === 'primary' && 'bg-[#2563EB]',
-            (!variant || variant === 'neutral') && 'bg-[#64748B]'
+            variant === 'success' && 'bg-[#18B887]',
+            variant === 'warning' && 'bg-[#F4A261]',
+            variant === 'danger' && 'bg-[#EF6B73]',
+            variant === 'info' && 'bg-[#6C5CE7]',
+            variant === 'primary' && 'bg-[#6C5CE7]',
+            (!variant || variant === 'neutral') && 'bg-[#687086]'
           )}
         />
       )}

@@ -38,7 +38,7 @@ export function Tooltip({
         <div
           role="tooltip"
           className={cn(
-            'absolute z-50 px-2 py-1 text-[11px] font-medium text-white bg-slate-900 rounded shadow-md whitespace-nowrap pointer-events-none transition-opacity duration-150',
+            'absolute z-50 px-2 py-1 text-[11px] font-medium text-white bg-[#171A2B] rounded shadow-md whitespace-nowrap pointer-events-none transition-opacity duration-150',
             positionClasses[position]
           )}
         >

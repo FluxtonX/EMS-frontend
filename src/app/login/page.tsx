@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Button, Input } from '@/components/ui';
-import { Shield, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Shield, Lock, Mail, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const { login, session, isLoading: authLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,23 +41,23 @@ export default function LoginPage() {
   // While checking auth state, show spinner
   if (authLoading) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-[#F8FAFC]">
-        <div className="h-8 w-8 rounded-full border-2 border-[#2563EB] border-t-transparent animate-spin" />
+      <div className="min-h-screen w-full flex items-center justify-center bg-[#F5F3FF]">
+        <div className="h-8 w-8 rounded-full border-2 border-[#6C5CE7] border-t-transparent animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#F8FAFC] p-4">
-      <div className="w-full max-w-sm bg-white rounded-lg border border-[#E2E8F0] shadow-sm p-6 space-y-6">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#F5F3FF] p-4">
+      <div className="w-full max-w-sm bg-white rounded-lg border border-[#E5E3F2] shadow-sm p-6 space-y-6">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center space-y-2">
-          <div className="h-10 w-10 rounded bg-[#2563EB] flex items-center justify-center text-white">
+          <div className="h-10 w-10 rounded bg-[#6C5CE7] flex items-center justify-center text-white shadow-xs">
             <Shield className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">Workforce Platform</h1>
-            <p className="text-xs text-[#64748B]">Sign in to your company workspace</p>
+            <h1 className="text-lg font-bold text-[#171A2B] tracking-tight">Workforce Platform</h1>
+            <p className="text-xs text-[#687086]">Sign in to your company workspace</p>
           </div>
         </div>
 
@@ -64,7 +65,7 @@ export default function LoginPage() {
         {error && (
           <div
             role="alert"
-            className="p-3 rounded bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#DC2626] font-medium"
+            className="p-3 rounded bg-[#FDF0F1] border border-[#FAC3C6] text-xs text-[#EF6B73] font-medium"
           >
             {error}
           </div>
@@ -73,7 +74,7 @@ export default function LoginPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
-            <label htmlFor="login-email" className="block text-xs font-semibold text-[#475569] mb-1">
+            <label htmlFor="login-email" className="block text-xs font-semibold text-[#687086] mb-1">
               Work Email
             </label>
             <Input
@@ -89,18 +90,28 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="login-password" className="block text-xs font-semibold text-[#475569] mb-1">
+            <label htmlFor="login-password" className="block text-xs font-semibold text-[#687086] mb-1">
               Password
             </label>
             <Input
               id="login-password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
               required
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               leftIcon={<Lock className="h-4 w-4" />}
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[#687086] hover:text-[#171A2B] focus:outline-none transition-colors flex items-center justify-center"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              }
             />
           </div>
 
@@ -116,10 +127,10 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <div className="pt-4 border-t border-[#F1F5F9] text-center">
-          <p className="text-xs text-[#64748B]">
+        <div className="pt-4 border-t border-[#F0EEF8] text-center">
+          <p className="text-xs text-[#687086]">
             Need a company workspace?{' '}
-            <Link href="/register" className="text-[#2563EB] font-medium hover:underline">
+            <Link href="/register" className="text-[#6C5CE7] font-medium hover:underline">
               Register company
             </Link>
           </p>

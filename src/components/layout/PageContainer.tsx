@@ -27,11 +27,11 @@ export function PageContainer({
       {breadcrumbs && <Breadcrumbs items={breadcrumbs} />}
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-[#E2E8F0]">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-2 border-b border-[#E5E3F2]">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-[#0F172A]">{title}</h1>
+          <h1 className="text-xl font-bold tracking-tight text-[#171A2B]">{title}</h1>
           {subtitle && (
-            <div className="mt-0.5 text-xs text-[#64748B] flex items-center gap-2">
+            <div className="mt-0.5 text-xs text-[#687086] flex items-center gap-2">
               {subtitle}
             </div>
           )}

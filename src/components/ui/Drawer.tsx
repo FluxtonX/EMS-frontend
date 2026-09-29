@@ -61,18 +61,18 @@ export function Drawer({
     >
       <div
         className={cn(
-          'relative w-full h-full bg-white shadow-2xl flex flex-col border-l border-[#E2E8F0] animate-in slide-in-from-right duration-200',
+          'relative w-full h-full bg-white shadow-2xl flex flex-col border-l border-[#E5E3F2] animate-in slide-in-from-right duration-200',
           widthMap[width]
         )}
       >
-        <div className="flex items-start justify-between px-5 py-4 border-b border-[#E2E8F0]">
+        <div className="flex items-start justify-between px-5 py-4 border-b border-[#F0EEF8]">
           <div>
-            {title && <h3 className="text-base font-semibold text-[#0F172A]">{title}</h3>}
-            {description && <p className="mt-0.5 text-xs text-[#64748B]">{description}</p>}
+            {title && <h3 className="text-base font-semibold text-[#171A2B]">{title}</h3>}
+            {description && <p className="mt-0.5 text-xs text-[#687086]">{description}</p>}
           </div>
           <button
             onClick={onClose}
-            className="rounded p-1 text-[#64748B] hover:text-[#0F172A] hover:bg-[#F1F5F9] transition-colors"
+            className="rounded p-1 text-[#687086] hover:text-[#171A2B] hover:bg-[#F5F3FF] transition-colors"
             aria-label="Close drawer"
           >
             <X className="h-4 w-4" />
@@ -82,7 +82,7 @@ export function Drawer({
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
 
         {footer && (
-          <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[#E2E8F0] bg-[#F8FAFC]">
+          <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[#F0EEF8] bg-[#F5F3FF]">
             {footer}
           </div>
         )}

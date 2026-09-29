@@ -14,7 +14,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       <div className="w-full">
         <div className="relative flex items-center">
           {leftIcon && (
-            <div className="absolute left-3 flex items-center pointer-events-none text-[#64748B]">
+            <div className="absolute left-3 flex items-center pointer-events-none text-[#687086]">
               {leftIcon}
             </div>
           )}
@@ -24,10 +24,10 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             disabled={disabled}
             className={cn(
-              'w-full h-9 rounded bg-white px-3 text-sm text-[#0F172A] placeholder:text-[#94A3B8] border transition-colors outline-none',
-              'focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]',
-              error ? 'border-[#DC2626] focus:border-[#DC2626] focus:ring-[#DC2626]/20' : 'border-[#CBD5E1] hover:border-[#94A3B8]',
-              disabled && 'bg-[#F8FAFC] text-[#94A3B8] border-[#E2E8F0] cursor-not-allowed',
+              'w-full h-9 rounded bg-white px-3 text-sm text-[#171A2B] placeholder:text-[#9096A9] border transition-colors outline-none',
+              'focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7]',
+              error ? 'border-[#EF6B73] focus:border-[#EF6B73] focus:ring-[#EF6B73]/20' : 'border-[#E5E3F2] hover:border-[#D5D0FA]',
+              disabled && 'bg-[#F5F3FF] text-[#9096A9] border-[#E5E3F2] cursor-not-allowed',
               leftIcon && 'pl-9',
               rightIcon && 'pr-9',
               className
@@ -35,13 +35,13 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="absolute right-3 flex items-center text-[#64748B]">
+            <div className="absolute right-3 flex items-center text-[#687086]">
               {rightIcon}
             </div>
           )}
         </div>
-        {error && <p className="mt-1 text-xs text-[#DC2626] font-medium">{error}</p>}
-        {!error && helperText && <p className="mt-1 text-xs text-[#64748B]">{helperText}</p>}
+        {error && <p className="mt-1 text-xs text-[#EF6B73] font-medium">{error}</p>}
+        {!error && helperText && <p className="mt-1 text-xs text-[#687086]">{helperText}</p>}
       </div>
     );
   }

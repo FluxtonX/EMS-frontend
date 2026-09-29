@@ -59,7 +59,9 @@ import {
   Clock,
   Coins,
   CheckCircle2,
+  Info,
 } from 'lucide-react';
+import { mockEmployees } from '@/lib/mockData';
 
 export default function EmployeesPage() {
   const queryClient = useQueryClient();
@@ -362,14 +364,43 @@ export default function EmployeesPage() {
     }
   };
 
+  // Check if real employees exist in database
+  const hasRealEmployees = Boolean(data && data.total > 0);
+
+  // If real data exists, use real items; otherwise fallback to mock data filtered by search & status
+  const displayItems = React.useMemo(() => {
+    if (hasRealEmployees && data) {
+      return data.items;
+    }
+    return mockEmployees.filter((emp) => {
+      const matchesSearch =
+        !debouncedSearch ||
+        `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        emp.employeeNumber.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        emp.phone.toLowerCase().includes(debouncedSearch.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || emp.employmentStatus === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [hasRealEmployees, data, debouncedSearch, statusFilter]);
+
+  const activeTotalCount = hasRealEmployees ? (data?.total ?? 0) : mockEmployees.length;
+
   return (
     <AppShell>
       <PageContainer
         title="Employees"
         subtitle={
-          <span>
-            <strong className="text-[#0F172A]">{data?.total ?? '—'}</strong> Workforce Records
-          </span>
+          <div className="flex items-center gap-2">
+            <span>
+              <strong className="text-[#171A2B]">{activeTotalCount}</strong> Workforce Records
+            </span>
+            {!hasRealEmployees && (
+              <Badge variant="info" size="sm" className="gap-1">
+                <Info className="h-3 w-3 text-[#6C5CE7]" />
+                Sample Data Preview
+              </Badge>
+            )}
+          </div>
         }
         breadcrumbs={[
           { label: 'Workforce Platform', href: '/' },
@@ -389,8 +420,17 @@ export default function EmployeesPage() {
           </Button>
         }
       >
+        {!hasRealEmployees && (
+          <div className="p-3 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
+              <span>Showing sample workforce records. Create your first employee using &quot;Add Employee&quot; to switch to live records.</span>
+            </div>
+          </div>
+        )}
+
         {/* Filter & Search Bar */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded border border-[#E2E8F0]">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded border border-[#E5E3F2]">
           <div className="w-full sm:w-80">
             <Input
               placeholder="Search by name, ID, phone..."
@@ -402,14 +442,14 @@ export default function EmployeesPage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#64748B] font-medium whitespace-nowrap">Status:</span>
+            <span className="text-xs text-[#687086] font-medium whitespace-nowrap">Status:</span>
             <select
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
                 setPage(1);
               }}
-              className="h-8 rounded bg-white px-2.5 text-xs text-[#0F172A] border border-[#CBD5E1] outline-none cursor-pointer"
+              className="h-8 rounded bg-white px-2.5 text-xs text-[#171A2B] border border-[#E5E3F2] outline-none cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="active">Active</option>
@@ -425,21 +465,17 @@ export default function EmployeesPage() {
         {isLoading ? (
           <TableSkeleton rows={5} cols={6} />
         ) : isError ? (
-          <div className="p-8 text-center bg-white rounded border border-[#FECACA]">
-            <AlertCircle className="h-8 w-8 text-[#DC2626] mx-auto mb-2" />
-            <p className="text-sm font-semibold text-[#991B1B]">Unable to load workforce records</p>
+          <div className="p-8 text-center bg-white rounded border border-[#FAC3C6]">
+            <AlertCircle className="h-8 w-8 text-[#EF6B73] mx-auto mb-2" />
+            <p className="text-sm font-semibold text-[#C93B43]">Unable to load workforce records</p>
             <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">
               Retry
             </Button>
           </div>
-        ) : !data || data.items.length === 0 ? (
+        ) : displayItems.length === 0 ? (
           <EmptyState
             title="No employees found"
-            description={
-              debouncedSearch || statusFilter !== 'all'
-                ? 'No workforce records match your active query filters.'
-                : 'Add your first employee to get started.'
-            }
+            description="No workforce records match your active query filters."
             action={
               <Button
                 variant="primary"
@@ -469,28 +505,30 @@ export default function EmployeesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.items.map((emp) => (
+                {displayItems.map((emp) => (
                   <TableRow
                     key={emp.id}
-                    className="cursor-pointer hover:bg-[#F8FAFC]"
+                    className="cursor-pointer hover:bg-[#F5F3FF]"
                     onClick={() => {
                       setSelectedEmployee(emp);
                       setActiveProfileTab('overview');
                     }}
                   >
-                    <TableCell className="font-mono text-xs font-semibold text-[#2563EB]">
+                    <TableCell className="font-mono text-xs font-semibold text-[#6C5CE7]">
                       {emp.employeeNumber}
                     </TableCell>
-                    <TableCell className="font-semibold text-[#0F172A]">
+                    <TableCell className="font-semibold text-[#171A2B]">
                       {emp.firstName} {emp.lastName}
                     </TableCell>
                     <TableCell>{renderStatusBadge(emp.employmentStatus)}</TableCell>
-                    <TableCell className="text-xs text-[#64748B]">
+                    <TableCell className="text-xs text-[#687086]">
                       {/* Section 18, 20: Assignment derived from assignment records in Phase 4 */}
-                      <span className="italic text-[#94A3B8]">Unassigned (Phase 4)</span>
+                      <span className="italic text-[#9096A9]">
+                        {emp.id === 'emp-demo-1' ? 'Canary Wharf Tower A' : emp.id === 'emp-demo-2' ? 'Control Room A' : 'Unassigned'}
+                      </span>
                     </TableCell>
                     <TableCell>{renderLicenceBadge(emp.licence)}</TableCell>
-                    <TableCell className="text-xs text-[#475569]">{emp.phone}</TableCell>
+                    <TableCell className="text-xs text-[#687086]">{emp.phone}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -510,9 +548,9 @@ export default function EmployeesPage() {
             </Table>
 
             <TablePagination
-              currentPage={data.page}
-              totalPages={data.totalPages}
-              totalItems={data.total}
+              currentPage={hasRealEmployees ? (data?.page || 1) : 1}
+              totalPages={hasRealEmployees ? (data?.totalPages || 1) : 1}
+              totalItems={hasRealEmployees ? (data?.total || 0) : displayItems.length}
               pageSize={10}
               onPageChange={setPage}
             />
@@ -576,7 +614,7 @@ export default function EmployeesPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-[#475569] mb-1">
+                    <label className="block text-xs font-semibold text-[#687086] mb-1">
                       First Name *
                     </label>
                     <Input
@@ -587,7 +625,7 @@ export default function EmployeesPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#475569] mb-1">
+                    <label className="block text-xs font-semibold text-[#687086] mb-1">
                       Last Name *
                     </label>
                     <Input
@@ -600,7 +638,7 @@ export default function EmployeesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#475569] mb-1">
+                  <label className="block text-xs font-semibold text-[#687086] mb-1">
                     Date of Birth *
                   </label>
                   <DatePicker
@@ -617,7 +655,7 @@ export default function EmployeesPage() {
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-[#475569] mb-1">Email *</label>
+                    <label className="block text-xs font-semibold text-[#687086] mb-1">Email *</label>
                     <Input
                       type="email"
                       required
@@ -627,7 +665,7 @@ export default function EmployeesPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#475569] mb-1">Phone *</label>
+                    <label className="block text-xs font-semibold text-[#687086] mb-1">Phone *</label>
                     <Input
                       required
                       placeholder="+44 7700 900123"
@@ -637,8 +675,8 @@ export default function EmployeesPage() {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-[#F1F5F9]">
-                  <h4 className="text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">
+                <div className="pt-2 border-t border-[#F0EEF8]">
+                  <h4 className="text-xs font-bold text-[#687086] uppercase tracking-wider mb-2">
                     Address
                   </h4>
                   <div className="space-y-2">
@@ -665,8 +703,8 @@ export default function EmployeesPage() {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-[#F1F5F9]">
-                  <h4 className="text-xs font-bold text-[#475569] uppercase tracking-wider mb-2">
+                <div className="pt-2 border-t border-[#F0EEF8]">
+                  <h4 className="text-xs font-bold text-[#687086] uppercase tracking-wider mb-2">
                     Emergency Contact
                   </h4>
                   <div className="grid grid-cols-3 gap-2">
@@ -701,7 +739,7 @@ export default function EmployeesPage() {
             {wizardStep === 3 && (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[#475569] mb-1">
+                  <label className="block text-xs font-semibold text-[#687086] mb-1">
                     Employee ID / Number *
                   </label>
                   <Input
@@ -710,14 +748,14 @@ export default function EmployeesPage() {
                     value={formData.employeeNumber}
                     onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value })}
                   />
-                  <p className="text-[11px] text-[#64748B] mt-1">
+                  <p className="text-[11px] text-[#687086] mt-1">
                     Unique identifier assigned within your company workspace.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-semibold text-[#475569] mb-1">
+                    <label className="block text-xs font-semibold text-[#687086] mb-1">
                       Employment Status
                     </label>
                     <select
@@ -728,7 +766,7 @@ export default function EmployeesPage() {
                           employmentStatus: e.target.value as EmploymentStatus,
                         })
                       }
-                      className="w-full h-9 rounded bg-white px-3 text-sm border border-[#CBD5E1] outline-none"
+                      className="w-full h-9 rounded bg-white px-3 text-sm border border-[#E5E3F2] outline-none"
                     >
                       <option value="active">Active</option>
                       <option value="probation">Probation</option>
@@ -737,7 +775,7 @@ export default function EmployeesPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#475569] mb-1">
+                    <label className="block text-xs font-semibold text-[#687086] mb-1">
                       Employment Start Date *
                     </label>
                     <DatePicker
@@ -755,25 +793,25 @@ export default function EmployeesPage() {
             {/* STEP 4: LICENCE & REVIEW */}
             {wizardStep === 4 && (
               <div className="space-y-4">
-                <div className="p-3 rounded border border-[#E2E8F0] bg-[#F8FAFC] space-y-3">
+                <div className="p-3 rounded border border-[#E5E3F2] bg-[#F5F3FF] space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-[#0F172A]">
+                    <span className="text-xs font-semibold text-[#171A2B]">
                       Include SIA Licence Record?
                     </span>
                     <input
                       type="checkbox"
                       checked={formData.hasLicence}
                       onChange={(e) => setFormData({ ...formData, hasLicence: e.target.checked })}
-                      className="h-4 w-4 rounded text-[#2563EB]"
+                      className="h-4 w-4 rounded text-[#6C5CE7]"
                     />
                   </div>
 
                   {formData.hasLicence && (
-                    <div className="space-y-2 pt-2 border-t border-[#E2E8F0]">
+                    <div className="space-y-2 pt-2 border-t border-[#E5E3F2]">
                       <select
                         value={formData.licenceType}
                         onChange={(e) => setFormData({ ...formData, licenceType: e.target.value })}
-                        className="w-full h-8 rounded bg-white px-2.5 text-xs border border-[#CBD5E1]"
+                        className="w-full h-8 rounded bg-white px-2.5 text-xs border border-[#E5E3F2]"
                       >
                         <option value="SIA Door Supervisor">SIA Door Supervisor</option>
                         <option value="SIA Security Guard">SIA Security Guard</option>
@@ -803,24 +841,24 @@ export default function EmployeesPage() {
                 </div>
 
                 {/* Review Summary */}
-                <div className="p-3 rounded bg-white border border-[#E2E8F0] text-xs space-y-1.5">
-                  <p className="font-bold text-[#0F172A] border-b border-[#F1F5F9] pb-1">
+                <div className="p-3 rounded bg-white border border-[#E5E3F2] text-xs space-y-1.5">
+                  <p className="font-bold text-[#171A2B] border-b border-[#F0EEF8] pb-1">
                     Summary Verification
                   </p>
                   <p>
-                    <span className="text-[#64748B]">Name:</span> {formData.firstName}{' '}
+                    <span className="text-[#687086]">Name:</span> {formData.firstName}{' '}
                     {formData.lastName} ({formData.employeeNumber})
                   </p>
                   <p>
-                    <span className="text-[#64748B]">Email / Phone:</span> {formData.email} •{' '}
+                    <span className="text-[#687086]">Email / Phone:</span> {formData.email} •{' '}
                     {formData.phone}
                   </p>
                   <p>
-                    <span className="text-[#64748B]">Emergency:</span> {formData.emergencyName} (
+                    <span className="text-[#687086]">Emergency:</span> {formData.emergencyName} (
                     {formData.emergencyRelationship} - {formData.emergencyPhone})
                   </p>
                   <p>
-                    <span className="text-[#64748B]">Start Date:</span>{' '}
+                    <span className="text-[#687086]">Start Date:</span>{' '}
                     {formData.employmentStartDate} (Status: {formData.employmentStatus})
                   </p>
                 </div>
@@ -850,13 +888,13 @@ export default function EmployeesPage() {
           {selectedEmployee && (
             <div className="space-y-4">
               {/* Profile Header Status */}
-              <div className="flex items-center justify-between p-3 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+              <div className="flex items-center justify-between p-3 rounded bg-[#F5F3FF] border border-[#E5E3F2]">
                 <div>
-                  <span className="text-xs text-[#64748B] block">Current Status</span>
+                  <span className="text-xs text-[#687086] block">Current Status</span>
                   <div className="mt-1">{renderStatusBadge(selectedEmployee.employmentStatus)}</div>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-[#64748B] block">Licence Status</span>
+                  <span className="text-xs text-[#687086] block">Licence Status</span>
                   <div className="mt-1">{renderLicenceBadge(selectedEmployee.licence)}</div>
                 </div>
               </div>
@@ -874,20 +912,20 @@ export default function EmployeesPage() {
                 {/* Sub-tab 1: Overview */}
                 <TabContent value="overview">
                   <div className="space-y-4 text-xs">
-                    <div className="p-3.5 rounded border border-[#E2E8F0] bg-white space-y-2.5">
-                      <h4 className="font-bold text-[#475569] uppercase tracking-wider">
+                    <div className="p-3.5 rounded border border-[#E5E3F2] bg-white space-y-2.5">
+                      <h4 className="font-bold text-[#687086] uppercase tracking-wider">
                         Contact Details
                       </h4>
-                      <div className="flex items-center gap-2 text-[#0F172A]">
-                        <Mail className="h-3.5 w-3.5 text-[#64748B]" />
+                      <div className="flex items-center gap-2 text-[#171A2B]">
+                        <Mail className="h-3.5 w-3.5 text-[#687086]" />
                         <span>{selectedEmployee.email}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-[#0F172A]">
-                        <Phone className="h-3.5 w-3.5 text-[#64748B]" />
+                      <div className="flex items-center gap-2 text-[#171A2B]">
+                        <Phone className="h-3.5 w-3.5 text-[#687086]" />
                         <span>{selectedEmployee.phone}</span>
                       </div>
-                      <div className="flex items-start gap-2 text-[#0F172A]">
-                        <MapPin className="h-3.5 w-3.5 text-[#64748B] shrink-0 mt-0.5" />
+                      <div className="flex items-start gap-2 text-[#171A2B]">
+                        <MapPin className="h-3.5 w-3.5 text-[#687086] shrink-0 mt-0.5" />
                         <span>
                           {selectedEmployee.address.line1}, {selectedEmployee.address.city},{' '}
                           {selectedEmployee.address.postalCode}
@@ -895,22 +933,22 @@ export default function EmployeesPage() {
                       </div>
                     </div>
 
-                    <div className="p-3.5 rounded border border-[#E2E8F0] bg-white space-y-2">
-                      <h4 className="font-bold text-[#475569] uppercase tracking-wider">
+                    <div className="p-3.5 rounded border border-[#E5E3F2] bg-white space-y-2">
+                      <h4 className="font-bold text-[#687086] uppercase tracking-wider">
                         Emergency Contact
                       </h4>
-                      <p className="font-semibold text-[#0F172A]">
+                      <p className="font-semibold text-[#171A2B]">
                         {selectedEmployee.emergencyContact.name}{' '}
-                        <span className="font-normal text-[#64748B]">
+                        <span className="font-normal text-[#687086]">
                           ({selectedEmployee.emergencyContact.relationship})
                         </span>
                       </p>
-                      <p className="text-[#475569]">{selectedEmployee.emergencyContact.phone}</p>
+                      <p className="text-[#687086]">{selectedEmployee.emergencyContact.phone}</p>
                     </div>
 
-                    <div className="p-3.5 rounded border border-[#E2E8F0] bg-white space-y-2">
+                    <div className="p-3.5 rounded border border-[#E5E3F2] bg-white space-y-2">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-bold text-[#475569] uppercase tracking-wider">
+                        <h4 className="font-bold text-[#687086] uppercase tracking-wider">
                           Current Assignment
                         </h4>
                         {activeAssignment && (
@@ -921,24 +959,24 @@ export default function EmployeesPage() {
                       {activeAssignment ? (
                         <div className="space-y-2 pt-1">
                           <div className="flex items-center justify-between">
-                            <span className="font-bold text-sm text-[#0F172A] flex items-center gap-1.5">
+                            <span className="font-bold text-sm text-[#171A2B] flex items-center gap-1.5">
                               <Building2 className="w-4 h-4 text-sky-600" />
                               {activeAssignment.siteJob?.site.name} [{activeAssignment.siteJob?.site.code}]
                             </span>
-                            <span className="font-mono font-semibold text-[#0F172A]">
+                            <span className="font-mono font-semibold text-[#171A2B]">
                               £{Number(activeAssignment.payRate).toFixed(2)}/hr
                             </span>
                           </div>
-                          <div className="text-xs text-[#64748B] flex items-center gap-1">
+                          <div className="text-xs text-[#687086] flex items-center gap-1">
                             <Briefcase className="w-3.5 h-3.5 text-slate-400" />
                             <span>Role: {activeAssignment.siteJob?.jobType?.name || 'Security Officer'}</span>
                           </div>
-                          <div className="text-xs text-[#64748B] flex items-center gap-1">
+                          <div className="text-xs text-[#687086] flex items-center gap-1">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />
                             <span>Effective since: {activeAssignment.startDate}</span>
                           </div>
 
-                          <div className="flex gap-2 pt-2 border-t border-[#F1F5F9]">
+                          <div className="flex gap-2 pt-2 border-t border-[#F0EEF8]">
                             <Button
                               size="xs"
                               variant="outline"
@@ -979,7 +1017,7 @@ export default function EmployeesPage() {
                         </div>
                       ) : (
                         <div className="pt-1">
-                          <p className="text-[#64748B] italic mb-2">
+                          <p className="text-[#687086] italic mb-2">
                             No active deployment. Employee is not currently assigned to any site.
                           </p>
                           <Button
@@ -1003,21 +1041,21 @@ export default function EmployeesPage() {
 
                 {/* Sub-tab 2: Employment */}
                 <TabContent value="employment">
-                  <div className="p-4 rounded border border-[#E2E8F0] bg-white text-xs space-y-3">
+                  <div className="p-4 rounded border border-[#E5E3F2] bg-white text-xs space-y-3">
                     <div>
-                      <span className="text-[#64748B] block">Employee Number</span>
-                      <span className="font-mono font-bold text-[#0F172A]">
+                      <span className="text-[#687086] block">Employee Number</span>
+                      <span className="font-mono font-bold text-[#171A2B]">
                         {selectedEmployee.employeeNumber}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#64748B] block">Start Date</span>
-                      <span className="font-medium text-[#0F172A]">
+                      <span className="text-[#687086] block">Start Date</span>
+                      <span className="font-medium text-[#171A2B]">
                         {selectedEmployee.employmentStartDate}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[#64748B] block">Status Actions</span>
+                      <span className="text-[#687086] block">Status Actions</span>
                       <div className="flex gap-2 mt-1.5">
                         <Button
                           variant="outline"
@@ -1045,7 +1083,7 @@ export default function EmployeesPage() {
                 <TabContent value="assignments">
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#475569] uppercase tracking-wider">
+                      <span className="text-xs font-bold text-[#687086] uppercase tracking-wider">
                         Assignment History ({assignments.length})
                       </span>
                       {activeAssignment ? (
@@ -1085,19 +1123,19 @@ export default function EmployeesPage() {
                     </div>
 
                     {assignments.length === 0 ? (
-                      <div className="p-6 rounded border border-dashed border-[#CBD5E1] bg-[#F8FAFC] text-center">
-                        <Building2 className="w-6 h-6 text-[#94A3B8] mx-auto mb-1.5" />
-                        <p className="text-xs text-[#64748B]">No assignment history on file.</p>
+                      <div className="p-6 rounded border border-dashed border-[#E5E3F2] bg-[#F5F3FF] text-center">
+                        <Building2 className="w-6 h-6 text-[#9096A9] mx-auto mb-1.5" />
+                        <p className="text-xs text-[#687086]">No assignment history on file.</p>
                       </div>
                     ) : (
                       <div className="space-y-2.5">
                         {assignments.map((a) => (
                           <div
                             key={a.id}
-                            className="p-3 bg-white rounded border border-[#E2E8F0] shadow-2xs text-xs space-y-1.5"
+                            className="p-3 bg-white rounded border border-[#E5E3F2] shadow-2xs text-xs space-y-1.5"
                           >
                             <div className="flex items-center justify-between">
-                              <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
+                              <span className="font-bold text-[#171A2B] flex items-center gap-1.5">
                                 <Building2 className="w-3.5 h-3.5 text-sky-600" />
                                 {a.siteJob?.site.name} [{a.siteJob?.site.code}]
                               </span>
@@ -1114,13 +1152,13 @@ export default function EmployeesPage() {
                                 {a.status}
                               </Badge>
                             </div>
-                            <div className="flex items-center justify-between text-[#64748B]">
+                            <div className="flex items-center justify-between text-[#687086]">
                               <span>Role: {a.siteJob?.jobType?.name || 'Security Officer'}</span>
-                              <span className="font-mono font-semibold text-[#0F172A]">
+                              <span className="font-mono font-semibold text-[#171A2B]">
                                 Locked Rate: £{Number(a.payRate).toFixed(2)}/hr
                               </span>
                             </div>
-                            <div className="text-[11px] text-[#94A3B8] flex items-center gap-1 pt-1 border-t border-[#F8FAFC]">
+                            <div className="text-[11px] text-[#9096A9] flex items-center gap-1 pt-1 border-t border-[#F5F3FF]">
                               <Calendar className="w-3 h-3" />
                               <span>{a.startDate} → {a.endDate || 'Present'}</span>
                             </div>
@@ -1134,35 +1172,35 @@ export default function EmployeesPage() {
                 {/* Sub-tab 4: Licences */}
                 <TabContent value="licences">
                   {selectedEmployee.licence ? (
-                    <div className="p-4 rounded border border-[#E2E8F0] bg-white space-y-2 text-xs">
+                    <div className="p-4 rounded border border-[#E5E3F2] bg-white space-y-2 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-[#0F172A]">
+                        <span className="font-bold text-[#171A2B]">
                           {selectedEmployee.licence.licenceType}
                         </span>
                         {renderLicenceBadge(selectedEmployee.licence)}
                       </div>
-                      <p className="text-[#64748B] font-mono">
+                      <p className="text-[#687086] font-mono">
                         Number: {selectedEmployee.licence.licenceNumber}
                       </p>
-                      <p className="text-[#64748B]">
+                      <p className="text-[#687086]">
                         Expires: {selectedEmployee.licence.expiryDate}
                       </p>
                     </div>
                   ) : (
-                    <div className="p-6 rounded border border-dashed border-[#CBD5E1] bg-[#F8FAFC] text-center">
-                      <FileCheck className="h-6 w-6 text-[#94A3B8] mx-auto mb-1.5" />
-                      <p className="text-xs text-[#64748B]">No licence registered on file.</p>
+                    <div className="p-6 rounded border border-dashed border-[#E5E3F2] bg-[#F5F3FF] text-center">
+                      <FileCheck className="h-6 w-6 text-[#9096A9] mx-auto mb-1.5" />
+                      <p className="text-xs text-[#687086]">No licence registered on file.</p>
                     </div>
                   )}
                 </TabContent>
 
                 {/* Sub-tab 5: History */}
                 <TabContent value="history">
-                  <div className="p-4 rounded border border-[#E2E8F0] bg-white text-xs space-y-2">
-                    <p className="text-[#64748B]">
+                  <div className="p-4 rounded border border-[#E5E3F2] bg-white text-xs space-y-2">
+                    <p className="text-[#687086]">
                       Created: {new Date(selectedEmployee.createdAt).toLocaleString('en-GB')}
                     </p>
-                    <p className="text-[#64748B]">
+                    <p className="text-[#687086]">
                       Last Updated: {new Date(selectedEmployee.updatedAt).toLocaleString('en-GB')}
                     </p>
                   </div>

@@ -20,7 +20,9 @@ import {
   Trash2,
   Edit2,
   UserPlus,
+  Info,
 } from 'lucide-react';
+import { Badge } from '@/components/ui';
 import { Shift, ShiftStatus, EligibleEmployee } from '@/types/shift';
 import { Site, SiteJob } from '@/types/site';
 import {
@@ -31,10 +33,12 @@ import {
   fetchEligibleEmployeesApi,
 } from '@/lib/api/shifts';
 import { fetchSites } from '@/lib/api/sites';
+import { mockShifts, mockSites } from '@/lib/mockData';
 
 export default function ShiftsPage() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [isUsingMockData, setIsUsingMockData] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,10 +87,16 @@ export default function ShiftsPage() {
         }),
         fetchSites(),
       ]);
-      setShifts(shiftsData);
-      setSites(sitesData);
+
+      const hasReal = Boolean(shiftsData && shiftsData.length > 0);
+      setIsUsingMockData(!hasReal);
+      setShifts(hasReal ? shiftsData : mockShifts);
+      setSites(sitesData && sitesData.length > 0 ? sitesData : mockSites);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load shifts.');
+      // In case of error or empty initial database, fallback to mock data
+      setIsUsingMockData(true);
+      setShifts(mockShifts);
+      setSites(mockSites);
     } finally {
       setLoading(false);
     }
@@ -221,26 +231,32 @@ export default function ShiftsPage() {
     <AppShell>
       <div className="space-y-5">
         {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E2E8F0] pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E5E3F2] pb-4">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-[#0F172A]">Shift Rostering & Operations</h1>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-[#2563EB] border border-blue-200">
+              <h1 className="text-xl font-bold text-[#171A2B]">Shift Rostering & Operations</h1>
+              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA]">
                 Live Conflict Engine
               </span>
             </div>
-            <p className="text-xs text-[#64748B] mt-0.5">
+            <p className="text-xs text-[#687086] mt-0.5">
               Strict conflict detection, real-time guard eligibility matching, and open post management.
             </p>
           </div>
 
           <div className="flex items-center gap-2">
+            {isUsingMockData && (
+              <Badge variant="info" size="sm" className="gap-1">
+                <Info className="h-3 w-3 text-[#6C5CE7]" />
+                Sample Rota Preview
+              </Badge>
+            )}
             <button
               onClick={() => {
                 setFormData((prev) => ({ ...prev, shiftDate: selectedDate }));
                 setIsCreateOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors shadow-sm"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded text-xs font-medium transition-colors shadow-sm"
             >
               <Plus className="h-3.5 w-3.5" />
               Schedule Shift
@@ -248,40 +264,49 @@ export default function ShiftsPage() {
           </div>
         </div>
 
+        {isUsingMockData && (
+          <div className="p-3 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
+              <span>Showing sample security rota and guard deployments. Click &quot;Schedule Shift&quot; to book your first live shift.</span>
+            </div>
+          </div>
+        )}
+
         {/* Date Navigator & Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#E2E8F0] shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#E5E3F2] shadow-sm">
           {/* Date controls */}
           <div className="flex items-center gap-1.5">
             <button
               onClick={handlePrevDay}
-              className="p-1.5 rounded hover:bg-[#F1F5F9] text-[#64748B] transition-colors"
+              className="p-1.5 rounded hover:bg-[#F1F5F9] text-[#687086] transition-colors"
               title="Previous Day"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={handleToday}
-              className="px-2.5 py-1 rounded text-xs font-medium border border-[#E2E8F0] hover:bg-[#F8FAFC] text-[#0F172A]"
+              className="px-2.5 py-1 rounded text-xs font-medium border border-[#E5E3F2] hover:bg-[#F5F3FF] text-[#171A2B]"
             >
               Today
             </button>
             <button
               onClick={handleNextDay}
-              className="p-1.5 rounded hover:bg-[#F1F5F9] text-[#64748B] transition-colors"
+              className="p-1.5 rounded hover:bg-[#F1F5F9] text-[#687086] transition-colors"
               title="Next Day"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
 
             <div className="flex items-center gap-2 ml-2">
-              <Calendar className="h-4 w-4 text-[#2563EB]" />
+              <Calendar className="h-4 w-4 text-[#6C5CE7]" />
               <input
                 type="date"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="text-xs font-semibold text-[#0F172A] border border-[#E2E8F0] rounded px-2 py-1 outline-none focus:border-[#2563EB]"
+                className="text-xs font-semibold text-[#171A2B] border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7]"
               />
-              <span className="text-xs text-[#64748B] hidden sm:inline">
+              <span className="text-xs text-[#687086] hidden sm:inline">
                 {new Date(selectedDate).toLocaleDateString('en-GB', {
                   weekday: 'long',
                   year: 'numeric',
@@ -294,12 +319,12 @@ export default function ShiftsPage() {
 
           {/* Filters */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-xs text-[#64748B]">
+            <div className="flex items-center gap-1 text-xs text-[#687086]">
               <Building2 className="h-3.5 w-3.5" />
               <select
                 value={selectedSiteId}
                 onChange={(e) => setSelectedSiteId(e.target.value)}
-                className="text-xs border border-[#E2E8F0] rounded px-2 py-1 outline-none focus:border-[#2563EB] bg-white text-[#0F172A]"
+                className="text-xs border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7] bg-white text-[#171A2B]"
               >
                 <option value="all">All Sites</option>
                 {sites.map((site) => (
@@ -310,12 +335,12 @@ export default function ShiftsPage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-[#64748B]">
+            <div className="flex items-center gap-1 text-xs text-[#687086]">
               <Filter className="h-3.5 w-3.5" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-xs border border-[#E2E8F0] rounded px-2 py-1 outline-none focus:border-[#2563EB] bg-white text-[#0F172A]"
+                className="text-xs border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7] bg-white text-[#171A2B]"
               >
                 <option value="all">All Statuses</option>
                 <option value="scheduled">Scheduled</option>
@@ -330,19 +355,19 @@ export default function ShiftsPage() {
 
         {/* Content Area */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E2E8F0]">
-            <Loader2 className="h-6 w-6 text-[#2563EB] animate-spin mb-2" />
-            <p className="text-xs text-[#64748B]">Loading shifts and roster entries...</p>
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E5E3F2]">
+            <Loader2 className="h-6 w-6 text-[#6C5CE7] animate-spin mb-2" />
+            <p className="text-xs text-[#687086]">Loading shifts and roster entries...</p>
           </div>
         ) : error ? (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs">
+          <div className="p-4 bg-[#FDF0F1] border border-[#FAC3C6] rounded-lg text-[#EF6B73] text-xs font-medium">
             {error}
           </div>
         ) : shifts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E2E8F0] text-center">
-            <Calendar className="h-10 w-10 text-[#94A3B8] mb-3" />
-            <h3 className="text-sm font-semibold text-[#0F172A]">No shifts scheduled for this date</h3>
-            <p className="text-xs text-[#64748B] mt-1 max-w-sm">
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E5E3F2] text-center">
+            <Calendar className="h-10 w-10 text-[#9096A9] mb-3" />
+            <h3 className="text-sm font-semibold text-[#171A2B]">No shifts scheduled for this date</h3>
+            <p className="text-xs text-[#687086] mt-1 max-w-sm">
               There are currently no operational shifts planned for the selected date and site filter.
             </p>
             <button
@@ -350,7 +375,7 @@ export default function ShiftsPage() {
                 setFormData((prev) => ({ ...prev, shiftDate: selectedDate }));
                 setIsCreateOpen(true);
               }}
-              className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#2563EB] hover:bg-blue-700 text-white rounded text-xs font-medium transition-colors"
+              className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded text-xs font-medium transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Schedule First Shift
@@ -366,8 +391,8 @@ export default function ShiftsPage() {
                   key={shift.id}
                   className={`bg-white rounded-lg border transition-all p-4 flex flex-col justify-between ${
                     isOpenPosition
-                      ? 'border-amber-300 bg-amber-50/20 shadow-sm'
-                      : 'border-[#E2E8F0] hover:border-blue-300 shadow-sm'
+                      ? 'border-[#FADBBF] bg-[#FEF6EE]/30 shadow-sm'
+                      : 'border-[#E5E3F2] hover:border-[#D5D0FA] shadow-sm'
                   }`}
                 >
                   <div className="space-y-3">
@@ -375,12 +400,12 @@ export default function ShiftsPage() {
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <Building2 className="h-3.5 w-3.5 text-[#2563EB]" />
-                          <h4 className="text-xs font-bold text-[#0F172A] leading-tight">
+                          <Building2 className="h-3.5 w-3.5 text-[#6C5CE7]" />
+                          <h4 className="text-xs font-bold text-[#171A2B] leading-tight">
                             {shift.site?.name || 'Unknown Site'}
                           </h4>
                         </div>
-                        <p className="text-[11px] text-[#64748B] ml-5">
+                        <p className="text-[11px] text-[#687086] ml-5">
                           {shift.siteJob?.jobType?.name || 'Security Role'}
                         </p>
                       </div>
@@ -388,14 +413,14 @@ export default function ShiftsPage() {
                     </div>
 
                     {/* Time Window */}
-                    <div className="flex items-center justify-between bg-[#F8FAFC] px-2.5 py-1.5 rounded border border-[#E2E8F0] text-xs">
-                      <div className="flex items-center gap-1.5 text-[#0F172A] font-semibold">
-                        <Clock className="h-3.5 w-3.5 text-[#64748B]" />
+                    <div className="flex items-center justify-between bg-[#F5F3FF] px-2.5 py-1.5 rounded border border-[#E5E3F2] text-xs">
+                      <div className="flex items-center gap-1.5 text-[#171A2B] font-semibold">
+                        <Clock className="h-3.5 w-3.5 text-[#687086]" />
                         <span>
                           {shift.startTime} – {shift.endTime}
                         </span>
                       </div>
-                      <span className="text-[10px] text-[#64748B]">
+                      <span className="text-[10px] text-[#687086]">
                         Break: {shift.breakMinutes}m
                       </span>
                     </div>
@@ -403,40 +428,40 @@ export default function ShiftsPage() {
                     {/* Assigned Officer / Open Position */}
                     <div className="pt-1">
                       {isOpenPosition ? (
-                        <div className="flex items-center justify-between p-2 rounded bg-amber-50 border border-amber-200">
+                        <div className="flex items-center justify-between p-2 rounded bg-[#FEF6EE] border border-[#FADBBF]">
                           <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-amber-600" />
+                            <AlertTriangle className="h-4 w-4 text-[#F4A261]" />
                             <div>
                               <p className="text-xs font-bold text-amber-900 leading-tight">
                                 Open Position
                               </p>
-                              <p className="text-[10px] text-amber-700">No officer assigned</p>
+                              <p className="text-[10px] text-[#F4A261]">No officer assigned</p>
                             </div>
                           </div>
                           <button
                             onClick={() => setSelectedShiftForEdit(shift)}
-                            className="px-2 py-0.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10px] font-semibold"
+                            className="px-2 py-0.5 bg-[#F4A261] hover:bg-amber-600 text-white rounded text-[10px] font-semibold"
                           >
                             Assign Guard
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-between p-2 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+                        <div className="flex items-center justify-between p-2 rounded bg-[#F5F3FF] border border-[#E5E3F2]">
                           <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-blue-100 text-[#2563EB] flex items-center justify-center font-bold text-xs">
+                            <div className="h-7 w-7 rounded-full bg-[#EDE9FE] text-[#6C5CE7] flex items-center justify-center font-bold text-xs">
                               {shift.employee?.firstName?.[0]}
                               {shift.employee?.lastName?.[0]}
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-[#0F172A] leading-tight">
+                              <p className="text-xs font-semibold text-[#171A2B] leading-tight">
                                 {shift.employee?.firstName} {shift.employee?.lastName}
                               </p>
-                              <p className="text-[10px] text-[#64748B]">
+                              <p className="text-[10px] text-[#687086]">
                                 {shift.employee?.employeeNumber}
                               </p>
                             </div>
                           </div>
-                          <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                          <span className="text-[10px] font-medium text-[#18B887] bg-[#E8F8F3] px-1.5 py-0.5 rounded border border-[#A3E5D0]">
                             Assigned
                           </span>
                         </div>
@@ -445,17 +470,17 @@ export default function ShiftsPage() {
 
                     {/* Notes if any */}
                     {shift.notes && (
-                      <p className="text-[11px] text-[#64748B] italic bg-slate-50 p-2 rounded border border-slate-100">
+                      <p className="text-[11px] text-[#687086] italic bg-[#F5F3FF] p-2 rounded border border-[#E5E3F2]">
                         "{shift.notes}"
                       </p>
                     )}
                   </div>
 
                   {/* Actions Bar */}
-                  <div className="flex items-center justify-between border-t border-[#E2E8F0] pt-3 mt-3 text-xs">
+                  <div className="flex items-center justify-between border-t border-[#E5E3F2] pt-3 mt-3 text-xs">
                     <button
                       onClick={() => setSelectedShiftForEdit(shift)}
-                      className="inline-flex items-center gap-1 text-[#2563EB] hover:text-blue-800 font-medium"
+                      className="inline-flex items-center gap-1 text-[#6C5CE7] hover:text-[#5A4ACD] font-medium"
                     >
                       <Edit2 className="h-3 w-3" />
                       Manage
@@ -504,17 +529,17 @@ export default function ShiftsPage() {
         {/* CREATE SHIFT MODAL */}
         {isCreateOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-[#E2E8F0]">
-              <div className="flex items-center justify-between p-4 border-b border-[#E2E8F0]">
+            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-[#E5E3F2]">
+              <div className="flex items-center justify-between p-4 border-b border-[#E5E3F2]">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Schedule Operational Shift</h3>
-                  <p className="text-xs text-[#64748B]">
+                  <h3 className="text-sm font-bold text-[#171A2B]">Schedule Operational Shift</h3>
+                  <p className="text-xs text-[#687086]">
                     Strict conflict detection & intelligent guard recommendation engine.
                   </p>
                 </div>
                 <button
                   onClick={() => setIsCreateOpen(false)}
-                  className="text-[#64748B] hover:text-[#0F172A]"
+                  className="text-[#687086] hover:text-[#171A2B]"
                 >
                   <XCircle className="h-4 w-4" />
                 </button>
@@ -529,7 +554,7 @@ export default function ShiftsPage() {
 
                 {/* Site Selection */}
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                     Select Site *
                   </label>
                   <select
@@ -538,7 +563,7 @@ export default function ShiftsPage() {
                       setFormData({ ...formData, siteId: e.target.value, siteJobId: '' })
                     }
                     required
-                    className="w-full text-xs border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                    className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                   >
                     <option value="">-- Choose Site --</option>
                     {sites.map((site) => (
@@ -551,7 +576,7 @@ export default function ShiftsPage() {
 
                 {/* Job Role Selection */}
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                     Operational Role & Bill Rate *
                   </label>
                   <select
@@ -559,7 +584,7 @@ export default function ShiftsPage() {
                     onChange={(e) => setFormData({ ...formData, siteJobId: e.target.value })}
                     required
                     disabled={!formData.siteId}
-                    className="w-full text-xs border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB] disabled:bg-slate-100"
+                    className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] disabled:bg-[#F5F3FF]"
                   >
                     <option value="">-- Choose Job Role --</option>
                     {selectedSiteJobs.map((sj: SiteJob) => (
@@ -574,7 +599,7 @@ export default function ShiftsPage() {
                 {/* Date & Time Range */}
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                       Shift Date *
                     </label>
                     <input
@@ -582,11 +607,11 @@ export default function ShiftsPage() {
                       value={formData.shiftDate}
                       onChange={(e) => setFormData({ ...formData, shiftDate: e.target.value })}
                       required
-                      className="w-full text-xs border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                      className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                       Start Time *
                     </label>
                     <input
@@ -594,11 +619,11 @@ export default function ShiftsPage() {
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                       required
-                      className="w-full text-xs border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                      className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                       End Time *
                     </label>
                     <input
@@ -606,13 +631,13 @@ export default function ShiftsPage() {
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                       required
-                      className="w-full text-xs border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                      className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                     Unpaid Break (Minutes)
                   </label>
                   <input
@@ -623,18 +648,18 @@ export default function ShiftsPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, breakMinutes: parseInt(e.target.value) || 0 })
                     }
-                    className="w-full text-xs border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                    className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                   />
                 </div>
 
                 {/* INTELLIGENT GUARD SUGGESTION SELECTOR */}
-                <div className="border border-[#E2E8F0] rounded p-3 bg-[#F8FAFC]">
+                <div className="border border-[#E5E3F2] rounded p-3 bg-[#F5F3FF]">
                   <div className="flex items-center justify-between mb-2">
-                    <label className="text-xs font-bold text-[#0F172A]">
+                    <label className="text-xs font-bold text-[#171A2B]">
                       Guard Assignment & Conflict Engine
                     </label>
                     {loadingEligible && (
-                      <span className="text-[10px] text-[#2563EB] flex items-center gap-1">
+                      <span className="text-[10px] text-[#6C5CE7] flex items-center gap-1">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         Checking conflicts...
                       </span>
@@ -642,7 +667,7 @@ export default function ShiftsPage() {
                   </div>
 
                   {/* Option for Open Position */}
-                  <label className="flex items-center gap-2 p-2 rounded border border-[#E2E8F0] bg-white cursor-pointer hover:bg-slate-50 mb-2">
+                  <label className="flex items-center gap-2 p-2 rounded border border-[#E5E3F2] bg-white cursor-pointer hover:bg-[#F5F3FF] mb-2">
                     <input
                       type="radio"
                       name="guardAssignment"
@@ -653,7 +678,7 @@ export default function ShiftsPage() {
                       <span className="text-xs font-bold text-amber-800">
                         Leave as Open Position (Unassigned)
                       </span>
-                      <p className="text-[10px] text-[#64748B]">
+                      <p className="text-[10px] text-[#687086]">
                         Post will appear in roster for dispatchers to assign later.
                       </p>
                     </div>
@@ -669,10 +694,10 @@ export default function ShiftsPage() {
                           key={rec.employee.id}
                           className={`flex items-start gap-2 p-2 rounded border transition-colors ${
                             hasConflict
-                              ? 'border-rose-200 bg-rose-50/50 cursor-not-allowed opacity-75'
+                              ? 'border-[#FAC3C6] bg-[#FDF0F1] cursor-not-allowed opacity-75'
                               : formData.employeeId === rec.employee.id
-                              ? 'border-[#2563EB] bg-blue-50/50 cursor-pointer'
-                              : 'border-[#E2E8F0] bg-white hover:bg-slate-50 cursor-pointer'
+                              ? 'border-[#6C5CE7] bg-[#EDE9FE]/50 cursor-pointer'
+                              : 'border-[#E5E3F2] bg-white hover:bg-[#F5F3FF] cursor-pointer'
                           }`}
                         >
                           <input
@@ -685,10 +710,10 @@ export default function ShiftsPage() {
                           />
                           <div className="flex-1 text-xs">
                             <div className="flex items-center justify-between">
-                              <span className="font-semibold text-[#0F172A]">
+                              <span className="font-semibold text-[#171A2B]">
                                 {rec.employee.firstName} {rec.employee.lastName}
                               </span>
-                              <span className="text-[10px] text-[#64748B]">
+                              <span className="text-[10px] text-[#687086]">
                                 {rec.employee.employeeNumber}
                               </span>
                             </div>
@@ -699,7 +724,7 @@ export default function ShiftsPage() {
                                 Conflict: Already booked ({rec.conflictDetails})
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2 text-[10px] text-[#64748B] mt-0.5">
+                              <div className="flex items-center gap-2 text-[10px] text-[#687086] mt-0.5">
                                 {rec.isAssignedToThisJob ? (
                                   <span className="text-emerald-700 font-medium">
                                     Assigned to this site role (£{rec.assignedPayRate}/hr)
@@ -718,7 +743,7 @@ export default function ShiftsPage() {
 
                 {/* Shift Notes */}
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                     Shift Instructions & Briefing Notes
                   </label>
                   <textarea
@@ -726,23 +751,23 @@ export default function ShiftsPage() {
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder="Specific patrol notes, key sign-out instructions, gate codes..."
-                    className="w-full text-xs border border-[#CBD5E1] rounded px-2.5 py-1.5 outline-none focus:border-[#2563EB]"
+                    className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                   />
                 </div>
 
                 {/* Modal Buttons */}
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E2E8F0]">
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E3F2]">
                   <button
                     type="button"
                     onClick={() => setIsCreateOpen(false)}
-                    className="px-3 py-1.5 rounded border border-[#CBD5E1] text-xs font-medium text-[#475569] hover:bg-[#F1F5F9]"
+                    className="px-3 py-1.5 rounded border border-[#E5E3F2] text-xs font-medium text-[#687086] hover:bg-[#F5F3FF]"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={formLoading}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#2563EB] hover:bg-blue-700 text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#6C5CE7] hover:bg-[#806FF0] text-white text-xs font-medium transition-colors shadow-sm disabled:opacity-50"
                   >
                     {formLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Confirm & Schedule
@@ -756,15 +781,15 @@ export default function ShiftsPage() {
         {/* MANAGE SHIFT MODAL */}
         {selectedShiftForEdit && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full border border-[#E2E8F0]">
-              <div className="flex items-center justify-between p-4 border-b border-[#E2E8F0]">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full border border-[#E5E3F2]">
+              <div className="flex items-center justify-between p-4 border-b border-[#E5E3F2]">
                 <div>
-                  <h3 className="text-sm font-bold text-[#0F172A]">Manage Shift</h3>
-                  <p className="text-xs text-[#64748B]">Update status or reassign officer.</p>
+                  <h3 className="text-sm font-bold text-[#171A2B]">Manage Shift</h3>
+                  <p className="text-xs text-[#687086]">Update status or reassign officer.</p>
                 </div>
                 <button
                   onClick={() => setSelectedShiftForEdit(null)}
-                  className="text-[#64748B] hover:text-[#0F172A]"
+                  className="text-[#687086] hover:text-[#171A2B]"
                 >
                   <XCircle className="h-4 w-4" />
                 </button>
@@ -772,21 +797,21 @@ export default function ShiftsPage() {
 
               <div className="p-4 space-y-4 text-xs">
                 {/* Shift summary */}
-                <div className="bg-[#F8FAFC] p-3 rounded border border-[#E2E8F0] space-y-1.5">
-                  <div className="flex items-center justify-between font-bold text-[#0F172A]">
+                <div className="bg-[#F5F3FF] p-3 rounded border border-[#E5E3F2] space-y-1.5">
+                  <div className="flex items-center justify-between font-bold text-[#171A2B]">
                     <span>{selectedShiftForEdit.site?.name}</span>
                     {getStatusBadge(selectedShiftForEdit.status)}
                   </div>
-                  <p className="text-[11px] text-[#64748B]">
+                  <p className="text-[11px] text-[#687086]">
                     {selectedShiftForEdit.siteJob?.jobType?.name} • Date: {selectedShiftForEdit.shiftDate}
                   </p>
-                  <p className="text-[11px] text-[#64748B]">
+                  <p className="text-[11px] text-[#687086]">
                     Hours: {selectedShiftForEdit.startTime} - {selectedShiftForEdit.endTime} (Break: {selectedShiftForEdit.breakMinutes}m)
                   </p>
                   <div className="pt-1">
-                    <span className="font-semibold text-[#0F172A]">Current Officer: </span>
+                    <span className="font-semibold text-[#171A2B]">Current Officer: </span>
                     {selectedShiftForEdit.employee ? (
-                      <span className="text-[#2563EB] font-bold">
+                      <span className="text-[#6C5CE7] font-bold">
                         {selectedShiftForEdit.employee.firstName} {selectedShiftForEdit.employee.lastName} ({selectedShiftForEdit.employee.employeeNumber})
                       </span>
                     ) : (
@@ -797,7 +822,7 @@ export default function ShiftsPage() {
 
                 {/* Status Changer */}
                 <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                  <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                     Change Shift Status
                   </label>
                   <div className="grid grid-cols-3 gap-1.5">
@@ -808,8 +833,8 @@ export default function ShiftsPage() {
                           onClick={() => handleUpdateStatus(selectedShiftForEdit.id, st)}
                           className={`py-1.5 px-2 rounded text-xs font-medium border text-center capitalize transition-colors ${
                             selectedShiftForEdit.status === st
-                              ? 'bg-[#2563EB] text-white border-[#2563EB]'
-                              : 'bg-white text-[#475569] border-[#CBD5E1] hover:bg-slate-50'
+                              ? 'bg-[#6C5CE7] text-white border-[#6C5CE7]'
+                              : 'bg-white text-[#687086] border-[#E5E3F2] hover:bg-[#F5F3FF]'
                           }`}
                         >
                           {st.replace('_', ' ')}
@@ -820,7 +845,7 @@ export default function ShiftsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-between">
+                <div className="pt-3 border-t border-[#E5E3F2] flex items-center justify-between">
                   <button
                     onClick={() => handleDeleteShift(selectedShiftForEdit.id)}
                     className="inline-flex items-center gap-1 text-rose-600 hover:text-rose-800 font-medium"

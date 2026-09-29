@@ -38,7 +38,7 @@ export function TabList({
   return (
     <div
       role="tablist"
-      className={cn('flex items-center space-x-1 border-b border-[#E2E8F0] mb-4', className)}
+      className={cn('flex items-center space-x-1 border-b border-[#E5E3F2] mb-4', className)}
     >
       {children}
     </div>
@@ -68,8 +68,8 @@ export function TabTrigger({
       className={cn(
         'inline-flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors cursor-pointer outline-none select-none',
         isActive
-          ? 'border-[#2563EB] text-[#2563EB]'
-          : 'border-transparent text-[#64748B] hover:text-[#0F172A] hover:border-[#CBD5E1]',
+          ? 'border-[#6C5CE7] text-[#6C5CE7]'
+          : 'border-transparent text-[#687086] hover:text-[#171A2B] hover:border-[#D5D0FA]',
         className
       )}
     >

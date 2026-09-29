@@ -4,22 +4,22 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const buttonVariants = cva(
-  'inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB] focus-visible:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none rounded select-none cursor-pointer',
+  'inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6C5CE7] focus-visible:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none rounded select-none cursor-pointer',
   {
     variants: {
       variant: {
         primary:
-          'bg-[#2563EB] text-white hover:bg-[#1D4ED8] active:bg-[#1E40AF] shadow-xs',
+          'bg-[#6C5CE7] text-white hover:bg-[#806FF0] active:bg-[#5A4ACD] shadow-xs',
         secondary:
-          'bg-[#F1F5F9] text-[#0F172A] hover:bg-[#E2E8F0] border border-[#CBD5E1]',
+          'bg-[#F5F3FF] text-[#171A2B] hover:bg-[#EDE9FE] border border-[#E5E3F2]',
         outline:
-          'bg-white text-[#0F172A] border border-[#E2E8F0] hover:bg-[#F8FAFC] hover:border-[#CBD5E1]',
+          'bg-white text-[#171A2B] border border-[#E5E3F2] hover:bg-[#F5F3FF] hover:border-[#D5D0FA]',
         destructive:
-          'bg-[#DC2626] text-white hover:bg-[#B91C1C] active:bg-[#991B1B] shadow-xs',
+          'bg-[#EF6B73] text-white hover:bg-[#E0535B] active:bg-[#C93B43] shadow-xs',
         ghost:
-          'text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A]',
+          'text-[#687086] hover:bg-[#F5F3FF] hover:text-[#171A2B]',
         link:
-          'text-[#2563EB] underline-offset-4 hover:underline p-0 h-auto',
+          'text-[#6C5CE7] underline-offset-4 hover:underline p-0 h-auto',
       },
       size: {
         xs: 'h-7 px-2 text-xs gap-1',

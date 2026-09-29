@@ -43,7 +43,9 @@ import {
   CheckCircle2,
   Edit2,
   AlertCircle,
+  Info,
 } from 'lucide-react';
+import { mockSites, mockJobTypes } from '@/lib/mockData';
 
 export default function SitesPage() {
   const queryClient = useQueryClient();
@@ -90,21 +92,29 @@ export default function SitesPage() {
   });
 
   // Data Queries
-  const { data: sites = [], isLoading: isLoadingSites } = useQuery({
+  const { data: realSites = [], isLoading: isLoadingSites } = useQuery({
     queryKey: ['sites'],
     queryFn: fetchSites,
   });
 
-  const { data: jobTypes = [], isLoading: isLoadingJobTypes } = useQuery({
+  const { data: realJobTypes = [], isLoading: isLoadingJobTypes } = useQuery({
     queryKey: ['job-types'],
     queryFn: fetchJobTypes,
   });
 
-  const { data: siteJobs = [], isLoading: isLoadingSiteJobs } = useQuery({
+  const hasRealSites = realSites.length > 0;
+  const sites = hasRealSites ? realSites : mockSites;
+
+  const hasRealJobTypes = realJobTypes.length > 0;
+  const jobTypes = hasRealJobTypes ? realJobTypes : mockJobTypes;
+
+  const { data: realSiteJobs = [], isLoading: isLoadingSiteJobs } = useQuery({
     queryKey: ['site-jobs', selectedSiteForRates?.id],
     queryFn: () => (selectedSiteForRates ? fetchSiteJobs(selectedSiteForRates.id) : Promise.resolve([])),
-    enabled: !!selectedSiteForRates,
+    enabled: !!selectedSiteForRates && hasRealSites,
   });
+
+  const siteJobs = hasRealSites ? realSiteJobs : (selectedSiteForRates?.jobs || []);
 
   // Mutations
   const createSiteMutation = useMutation({
@@ -239,18 +249,35 @@ export default function SitesPage() {
           </Button>
         }
         secondaryActions={
-          <Button
-            variant="outline"
-            onClick={() => setIsJobTypesDrawerOpen(true)}
-            className="gap-2"
-          >
-            <Briefcase className="w-4 h-4 text-slate-400" />
-            Role Catalog ({jobTypes.length})
-          </Button>
+          <div className="flex items-center gap-2">
+            {!hasRealSites && (
+              <Badge variant="info" size="sm" className="gap-1">
+                <Info className="w-3 h-3 text-[#6C5CE7]" />
+                Sample Sites Preview
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              onClick={() => setIsJobTypesDrawerOpen(true)}
+              className="gap-2"
+            >
+              <Briefcase className="w-4 h-4 text-slate-400" />
+              Role Catalog ({jobTypes.length})
+            </Button>
+          </div>
         }
       >
+        {!hasRealSites && (
+          <div className="p-3 mb-6 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
+              <span>Showing sample client deployment sites. Click &quot;New Deployment Site&quot; to register your first live location.</span>
+            </div>
+          </div>
+        )}
+
         {/* Filter bar */}
-        <div className="bg-white border border-[#E2E8F0] rounded-lg p-4 mb-6 shadow-xs flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div className="bg-white border border-[#E5E3F2] rounded-lg p-4 mb-6 shadow-xs flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="flex-1 w-full relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
@@ -258,7 +285,7 @@ export default function SitesPage() {
               placeholder="Search by site code, name, city, or manager..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-[#E2E8F0] rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors"
+              className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-[#E5E3F2] rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 transition-colors"
             />
           </div>
 
@@ -277,7 +304,7 @@ export default function SitesPage() {
         </div>
 
         {/* Sites Table */}
-        <div className="bg-white border border-[#E2E8F0] rounded-lg shadow-xs overflow-hidden">
+        <div className="bg-white border border-[#E5E3F2] rounded-lg shadow-xs overflow-hidden">
           {isLoadingSites ? (
             <TableSkeleton rows={5} cols={6} />
           ) : filteredSites.length === 0 ? (

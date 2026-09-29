@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Button, Input } from '@/components/ui';
-import { Building2, ArrowRight } from 'lucide-react';
+import { Building2, ArrowRight, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function RegisterPage() {
     password: '',
     phone: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,27 +42,27 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-[#F8FAFC] p-4">
-      <div className="w-full max-w-md bg-white rounded-lg border border-[#E2E8F0] shadow-sm p-6 space-y-6">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#F5F3FF] p-4">
+      <div className="w-full max-w-md bg-white rounded-lg border border-[#E5E3F2] shadow-sm p-6 space-y-6">
         <div className="flex flex-col items-center text-center space-y-2">
-          <div className="h-10 w-10 rounded bg-[#2563EB] flex items-center justify-center text-white">
+          <div className="h-10 w-10 rounded bg-[#6C5CE7] flex items-center justify-center text-white shadow-xs">
             <Building2 className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[#0F172A] tracking-tight">Register Company Workspace</h1>
-            <p className="text-xs text-[#64748B]">Set up multi-tenant security operations</p>
+            <h1 className="text-lg font-bold text-[#171A2B] tracking-tight">Register Company Workspace</h1>
+            <p className="text-xs text-[#687086]">Set up multi-tenant security operations</p>
           </div>
         </div>
 
         {error && (
-          <div className="p-3 rounded bg-[#FEF2F2] border border-[#FECACA] text-xs text-[#DC2626] font-medium">
+          <div className="p-3 rounded bg-[#FDF0F1] border border-[#FAC3C6] text-xs text-[#EF6B73] font-medium">
             {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
-            <label className="block text-xs font-semibold text-[#475569] mb-1">Company Name</label>
+            <label className="block text-xs font-semibold text-[#687086] mb-1">Company Name</label>
             <Input
               name="companyName"
               placeholder="e.g. Apex Security Solutions Ltd"
@@ -73,7 +74,7 @@ export default function RegisterPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-[#475569] mb-1">First Name</label>
+              <label className="block text-xs font-semibold text-[#687086] mb-1">First Name</label>
               <Input
                 name="firstName"
                 placeholder="Marcus"
@@ -83,7 +84,7 @@ export default function RegisterPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#475569] mb-1">Last Name</label>
+              <label className="block text-xs font-semibold text-[#687086] mb-1">Last Name</label>
               <Input
                 name="lastName"
                 placeholder="Vance"
@@ -95,7 +96,7 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#475569] mb-1">Work Email</label>
+            <label className="block text-xs font-semibold text-[#687086] mb-1">Work Email</label>
             <Input
               type="email"
               name="email"
@@ -107,15 +108,29 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#475569] mb-1">Password (min 8 chars)</label>
+            <label htmlFor="register-password" className="block text-xs font-semibold text-[#687086] mb-1">
+              Password (min 8 chars)
+            </label>
             <Input
-              type="password"
+              id="register-password"
+              type={showPassword ? 'text' : 'password'}
               name="password"
               placeholder="••••••••"
               required
               minLength={8}
               value={formData.password}
               onChange={handleChange}
+              leftIcon={<Lock className="h-4 w-4" />}
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-[#687086] hover:text-[#171A2B] focus:outline-none transition-colors flex items-center justify-center"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              }
             />
           </div>
 
@@ -131,10 +146,10 @@ export default function RegisterPage() {
           </Button>
         </form>
 
-        <div className="pt-4 border-t border-[#F1F5F9] text-center">
-          <p className="text-xs text-[#64748B]">
+        <div className="pt-4 border-t border-[#F0EEF8] text-center">
+          <p className="text-xs text-[#687086]">
             Already have an active account?{' '}
-            <Link href="/login" className="text-[#2563EB] font-medium hover:underline">
+            <Link href="/login" className="text-[#6C5CE7] font-medium hover:underline">
               Sign In
             </Link>
           </p>
