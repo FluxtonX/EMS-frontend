@@ -46,8 +46,8 @@ export function PageContainer({
         )}
       </div>
 
-      {/* Main page content */}
-      <div>{children}</div>
+      {/* Main page content with proper vertical spacing */}
+      <div className="space-y-6">{children}</div>
     </div>
   );
 }

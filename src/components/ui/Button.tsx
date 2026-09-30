@@ -4,22 +4,42 @@ import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const buttonVariants = cva(
-  'inline-flex items-center justify-center font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6C5CE7] focus-visible:ring-offset-1 disabled:opacity-50 disabled:pointer-events-none rounded select-none cursor-pointer',
+  [
+    'inline-flex items-center justify-center font-medium transition-all duration-150',
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6C5CE7] focus-visible:ring-offset-1',
+    'disabled:opacity-50 disabled:pointer-events-none rounded-lg select-none cursor-pointer',
+  ].join(' '),
   {
     variants: {
       variant: {
-        primary:
-          'bg-[#6C5CE7] text-white hover:bg-[#806FF0] active:bg-[#5A4ACD] shadow-xs',
-        secondary:
-          'bg-[#F5F3FF] text-[#171A2B] hover:bg-[#EDE9FE] border border-[#E5E3F2]',
-        outline:
-          'bg-white text-[#171A2B] border border-[#E5E3F2] hover:bg-[#F5F3FF] hover:border-[#D5D0FA]',
-        destructive:
-          'bg-[#EF6B73] text-white hover:bg-[#E0535B] active:bg-[#C93B43] shadow-xs',
-        ghost:
-          'text-[#687086] hover:bg-[#F5F3FF] hover:text-[#171A2B]',
-        link:
-          'text-[#6C5CE7] underline-offset-4 hover:underline p-0 h-auto',
+        primary: [
+          'bg-[#6C5CE7] text-white',
+          'hover:bg-[#806FF0]',
+          'active:bg-[#5A4ACD] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.18)]',
+          'shadow-sm',
+        ].join(' '),
+        secondary: [
+          'bg-[#F5F3FF] text-[#171A2B] border border-[#E5E3F2]',
+          'hover:bg-[#EDE9FE]',
+          'active:bg-[#DDD9F8] active:shadow-[inset_0_2px_4px_rgba(108,92,231,0.12)]',
+        ].join(' '),
+        outline: [
+          'bg-white text-[#171A2B] border border-[#E5E3F2]',
+          'hover:bg-[#F5F3FF] hover:border-[#D5D0FA]',
+          'active:bg-[#EDE9FE] active:shadow-[inset_0_2px_3px_rgba(108,92,231,0.1)]',
+        ].join(' '),
+        destructive: [
+          'bg-[#EF6B73] text-white',
+          'hover:bg-[#E0535B]',
+          'active:bg-[#C93B43] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.2)]',
+          'shadow-sm',
+        ].join(' '),
+        ghost: [
+          'text-[#687086]',
+          'hover:bg-[#F5F3FF] hover:text-[#171A2B]',
+          'active:bg-[#EDE9FE] active:shadow-[inset_0_1px_3px_rgba(108,92,231,0.1)]',
+        ].join(' '),
+        link: 'text-[#6C5CE7] underline-offset-4 hover:underline p-0 h-auto rounded-none',
       },
       size: {
         xs: 'h-7 px-2 text-xs gap-1',

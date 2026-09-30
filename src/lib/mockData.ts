@@ -2,6 +2,8 @@ import { Employee } from '@/types/employee';
 import { Site, JobType } from '@/types/site';
 import { Shift } from '@/types/shift';
 import { AttendanceRecord } from '@/types/attendance';
+import { EmployeeLicence, ComplianceSummary } from '@/types/licence';
+import { EmployeeDocument } from '@/types/document';
 
 export const mockJobTypes: JobType[] = [
   {
@@ -551,3 +553,130 @@ export const mockAttendanceRecords: AttendanceRecord[] = [
     shift: mockShifts[4],
   },
 ];
+
+export const mockLicences: EmployeeLicence[] = [
+  {
+    id: 'lic-demo-1',
+    companyId: 'company-demo-1',
+    employeeId: 'emp-demo-1',
+    licenceType: 'SIA Door Supervisor',
+    licenceNumber: '1002938475610293',
+    expiryDate: '2027-04-15',
+    status: 'valid',
+    verifiedAt: '2025-01-15T10:00:00Z',
+    verifiedBy: 'Operations Manager',
+    createdAt: '2025-01-15T10:00:00Z',
+    updatedAt: '2025-01-15T10:00:00Z',
+    employee: mockEmployees[0],
+  },
+  {
+    id: 'lic-demo-2',
+    companyId: 'company-demo-1',
+    employeeId: 'emp-demo-2',
+    licenceType: 'SIA CCTV Surveillance',
+    licenceNumber: '2093847561029384',
+    expiryDate: new Date(Date.now() + 18 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    status: 'expiring_soon',
+    verifiedAt: '2025-01-16T11:00:00Z',
+    verifiedBy: 'Operations Manager',
+    createdAt: '2025-01-16T11:00:00Z',
+    updatedAt: '2025-01-16T11:00:00Z',
+    employee: mockEmployees[1],
+  },
+  {
+    id: 'lic-demo-3',
+    companyId: 'company-demo-1',
+    employeeId: 'emp-demo-3',
+    licenceType: 'SIA Security Guard',
+    licenceNumber: '3094857610293847',
+    expiryDate: '2027-09-30',
+    status: 'valid',
+    verifiedAt: '2025-01-17T09:30:00Z',
+    verifiedBy: 'Operations Manager',
+    createdAt: '2025-01-17T09:30:00Z',
+    updatedAt: '2025-01-17T09:30:00Z',
+    employee: mockEmployees[2],
+  },
+  {
+    id: 'lic-demo-4',
+    companyId: 'company-demo-1',
+    employeeId: 'emp-demo-4',
+    licenceType: 'SIA Close Protection',
+    licenceNumber: '4095867120394857',
+    expiryDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    status: 'expired',
+    verifiedAt: '2024-02-10T12:00:00Z',
+    verifiedBy: 'Compliance Lead',
+    createdAt: '2024-02-10T12:00:00Z',
+    updatedAt: '2025-01-18T10:00:00Z',
+    employee: mockEmployees[3],
+  },
+  {
+    id: 'lic-demo-5',
+    companyId: 'company-demo-1',
+    employeeId: 'emp-demo-5',
+    licenceType: 'SIA Door Supervisor',
+    licenceNumber: '5096871230495867',
+    expiryDate: '2026-11-20',
+    status: 'pending_verification',
+    createdAt: '2025-02-01T14:20:00Z',
+    updatedAt: '2025-02-01T14:20:00Z',
+    employee: mockEmployees[4],
+  },
+];
+
+export const mockDocuments: EmployeeDocument[] = [
+  {
+    id: 'doc-demo-1',
+    companyId: 'company-demo-1',
+    employeeId: 'emp-demo-1',
+    documentType: 'RightToWork',
+    fileName: 'british_passport_scan.pdf',
+    storagePath: 'company-demo-1/emp-demo-1/passport.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 2450000,
+    isVerified: true,
+    verifiedAt: '2025-01-15T10:00:00Z',
+    verifiedBy: 'Operations Manager',
+    createdAt: '2025-01-15T09:30:00Z',
+    updatedAt: '2025-01-15T10:00:00Z',
+  },
+  {
+    id: 'doc-demo-2',
+    companyId: 'company-demo-1',
+    employeeId: 'emp-demo-1',
+    documentType: 'SIA_Badge_Scan',
+    fileName: 'sia_door_supervisor_front_back.png',
+    storagePath: 'company-demo-1/emp-demo-1/sia_badge.png',
+    mimeType: 'image/png',
+    fileSizeBytes: 1200000,
+    isVerified: true,
+    verifiedAt: '2025-01-15T10:05:00Z',
+    verifiedBy: 'Operations Manager',
+    createdAt: '2025-01-15T09:35:00Z',
+    updatedAt: '2025-01-15T10:05:00Z',
+  },
+  {
+    id: 'doc-demo-3',
+    companyId: 'company-demo-1',
+    employeeId: 'emp-demo-2',
+    documentType: 'ProofOfAddress',
+    fileName: 'council_tax_statement_2025.pdf',
+    storagePath: 'company-demo-1/emp-demo-2/proof_of_address.pdf',
+    mimeType: 'application/pdf',
+    fileSizeBytes: 890000,
+    isVerified: false,
+    createdAt: '2025-01-16T11:00:00Z',
+    updatedAt: '2025-01-16T11:00:00Z',
+  },
+];
+
+export const mockComplianceSummary: ComplianceSummary = {
+  total: 5,
+  valid: 2,
+  expiringSoon: 1,
+  expired: 1,
+  pendingVerification: 1,
+  rejected: 0,
+};
+

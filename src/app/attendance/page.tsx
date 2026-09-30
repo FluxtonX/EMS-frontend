@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { PageContainer } from '@/components/layout/PageContainer';
 import {
   Clock,
   MapPin,
@@ -22,7 +23,7 @@ import {
   Filter,
   Info,
 } from 'lucide-react';
-import { Badge } from '@/components/ui';
+import { Badge, Button } from '@/components/ui';
 import { AttendanceRecord, AttendanceStatus, VarianceFlag } from '@/types/attendance';
 import { Site } from '@/types/site';
 import { Employee } from '@/types/employee';
@@ -327,40 +328,42 @@ export default function AttendancePage() {
 
   return (
     <AppShell>
-      <div className="space-y-5">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E5E3F2] pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-[#171A2B]">Attendance & Geofenced Time Tracking</h1>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Live Geofence Radar
-              </span>
-            </div>
-            <p className="text-xs text-[#687086] mt-0.5">
-              Haversine GPS boundary verification, real-time duty state machine, and supervisor reconciliation.
-            </p>
-          </div>
-
+      <PageContainer
+        title="Attendance & Geofenced Time Tracking"
+        subtitle={
           <div className="flex items-center gap-2">
-            {isUsingMockData && (
-              <Badge variant="info" size="sm" className="gap-1">
-                <Info className="h-3 w-3 text-[#6C5CE7]" />
-                Live Tracking Preview
-              </Badge>
-            )}
-            <button
-              onClick={() => setIsClockInOpen(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded text-xs font-medium transition-colors shadow-sm"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Record Clock-In
-            </button>
+            <span>Haversine GPS boundary verification, real-time duty state machine, and supervisor reconciliation.</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Live Geofence Radar
+            </span>
           </div>
-        </div>
+        }
+        breadcrumbs={[
+          { label: 'Workforce Platform', href: '/' },
+          { label: 'Attendance' },
+        ]}
+        primaryAction={
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => setIsClockInOpen(true)}
+          >
+            Record Clock-In
+          </Button>
+        }
+        secondaryActions={
+          isUsingMockData ? (
+            <Badge variant="info" size="sm" className="gap-1">
+              <Info className="h-3 w-3 text-[#6C5CE7]" />
+              Live Tracking Preview
+            </Badge>
+          ) : undefined
+        }
+      >
 
         {isUsingMockData && (
-          <div className="p-3 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
+          <div className="my-4 p-4 rounded-xl bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
             <div className="flex items-center gap-2">
               <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
               <span>Showing sample geofenced attendance logs. When guards clock in via mobile or portal, live records will display here.</span>
@@ -369,51 +372,55 @@ export default function AttendancePage() {
         )}
 
         {/* Live Operational Metrics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white p-3.5 rounded-lg border border-[#E5E3F2] shadow-sm">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 my-6">
+          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span>On Duty Now</span>
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="font-semibold">On Duty Now</span>
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
-            <p className="text-2xl font-bold text-[#171A2B] mt-1">{stats.onDuty}</p>
+            <p className="text-2xl font-bold text-[#171A2B] mt-2.5">{stats.onDuty}</p>
+            <p className="text-[11px] text-[#9096A9] mt-1">Guards on site</p>
           </div>
 
-          <div className="bg-white p-3.5 rounded-lg border border-[#E5E3F2] shadow-sm">
+          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span>On Break</span>
-              <Coffee className="h-3.5 w-3.5 text-amber-600" />
+              <span className="font-semibold">On Break</span>
+              <Coffee className="h-4.5 w-4.5 text-amber-600" />
             </div>
-            <p className="text-2xl font-bold text-[#171A2B] mt-1">{stats.onBreak}</p>
+            <p className="text-2xl font-bold text-[#171A2B] mt-2.5">{stats.onBreak}</p>
+            <p className="text-[11px] text-[#9096A9] mt-1">Logged breaks</p>
           </div>
 
-          <div className="bg-white p-3.5 rounded-lg border border-[#E5E3F2] shadow-sm">
+          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span>Completed (Today)</span>
-              <CheckCircle2 className="h-3.5 w-3.5 text-[#6C5CE7]" />
+              <span className="font-semibold">Completed (Today)</span>
+              <CheckCircle2 className="h-4.5 w-4.5 text-[#6C5CE7]" />
             </div>
-            <p className="text-2xl font-bold text-[#171A2B] mt-1">{stats.clockedOut}</p>
+            <p className="text-2xl font-bold text-[#6C5CE7] mt-2.5">{stats.clockedOut}</p>
+            <p className="text-[11px] text-[#9096A9] mt-1">Clocked out shifts</p>
           </div>
 
-          <div className="bg-white p-3.5 rounded-lg border border-[#E5E3F2] shadow-sm">
+          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span>Pending Variances</span>
-              <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+              <span className="font-semibold">Pending Variances</span>
+              <AlertTriangle className="h-4.5 w-4.5 text-rose-600" />
             </div>
-            <p className="text-2xl font-bold text-rose-600 mt-1">{stats.variances}</p>
+            <p className="text-2xl font-bold text-rose-600 mt-2.5">{stats.variances}</p>
+            <p className="text-[11px] text-[#9096A9] mt-1">Need reconciliation</p>
           </div>
         </div>
 
         {/* Filters & Date Selector */}
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#E5E3F2] shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] my-6">
           <div className="flex items-center gap-2">
             <Calendar className="h-4 w-4 text-[#6C5CE7]" />
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="text-xs font-semibold text-[#171A2B] border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7]"
+              className="text-xs font-semibold text-[#171A2B] border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
             />
-            <span className="text-xs text-[#687086] hidden sm:inline">
+            <span className="text-xs text-[#687086] hidden sm:inline font-medium">
               {new Date(selectedDate).toLocaleDateString('en-GB', {
                 weekday: 'long',
                 year: 'numeric',
@@ -423,13 +430,13 @@ export default function AttendancePage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-xs text-[#687086]">
-              <Building2 className="h-3.5 w-3.5" />
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5 text-xs text-[#687086]">
+              <Building2 className="h-3.5 w-3.5 text-[#6C5CE7]" />
               <select
                 value={selectedSiteId}
                 onChange={(e) => setSelectedSiteId(e.target.value)}
-                className="text-xs border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7] bg-white text-[#171A2B]"
+                className="text-xs border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] text-[#171A2B] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
               >
                 <option value="all">All Sites</option>
                 {sites.map((site) => (
@@ -440,12 +447,12 @@ export default function AttendancePage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-[#687086]">
-              <Filter className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-1.5 text-xs text-[#687086]">
+              <Filter className="h-3.5 w-3.5 text-[#6C5CE7]" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-xs border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7] bg-white text-[#171A2B]"
+                className="text-xs border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] text-[#171A2B] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
               >
                 <option value="all">All Statuses</option>
                 <option value="clocked_in">On Duty</option>
@@ -456,12 +463,12 @@ export default function AttendancePage() {
               </select>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-[#687086]">
-              <AlertTriangle className="h-3.5 w-3.5" />
+            <div className="flex items-center gap-1.5 text-xs text-[#687086]">
+              <AlertTriangle className="h-3.5 w-3.5 text-[#6C5CE7]" />
               <select
                 value={varianceFilter}
                 onChange={(e) => setVarianceFilter(e.target.value)}
-                className="text-xs border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7] bg-white text-[#171A2B]"
+                className="text-xs border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] text-[#171A2B] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
               >
                 <option value="all">All Variances</option>
                 <option value="none">No Variance (Clean)</option>
@@ -476,16 +483,16 @@ export default function AttendancePage() {
 
         {/* Content Table */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E5E3F2]">
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-[#E5E3F2] my-6">
             <Loader2 className="h-6 w-6 text-[#6C5CE7] animate-spin mb-2" />
             <p className="text-xs text-[#687086]">Loading attendance radar and timecards...</p>
           </div>
         ) : error ? (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs">
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs my-6">
             {error}
           </div>
         ) : records.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-lg border border-[#E5E3F2] text-center">
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-[#E5E3F2] text-center my-6">
             <Clock className="h-10 w-10 text-[#9096A9] mb-3" />
             <h3 className="text-sm font-semibold text-[#171A2B]">No attendance records found</h3>
             <p className="text-xs text-[#687086] mt-1 max-w-sm">
@@ -493,14 +500,14 @@ export default function AttendancePage() {
             </p>
             <button
               onClick={() => setIsClockInOpen(true)}
-              className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded text-xs font-medium transition-colors"
+              className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded-lg text-xs font-medium transition-colors shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
             >
               <Plus className="h-3.5 w-3.5" />
               Record First Clock-In
             </button>
           </div>
         ) : (
-          <div className="bg-white rounded-lg border border-[#E5E3F2] shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-[#E5E3F2] shadow-sm overflow-hidden my-6">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-[#F5F3FF] border-b border-[#E5E3F2] text-[#687086] font-semibold">
@@ -932,7 +939,7 @@ export default function AttendancePage() {
             </div>
           </div>
         )}
-      </div>
+      </PageContainer>
     </AppShell>
   );
 }

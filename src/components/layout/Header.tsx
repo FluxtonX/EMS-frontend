@@ -4,8 +4,9 @@ import React from 'react';
 import Link from 'next/link';
 import { useUIStore } from '@/lib/uiStore';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { Menu, Bell, Shield, LogOut, LogIn } from 'lucide-react';
+import { Menu, Shield, LogOut, LogIn } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { NotificationBell } from './NotificationBell';
 
 export function Header() {
   const { toggleSidebar } = useUIStore();
@@ -44,15 +45,7 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          className="relative text-[#687086] hover:text-[#171A2B]"
-          aria-label="Notifications"
-        >
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-[#EF6B73]" />
-        </Button>
+        <NotificationBell />
 
         {user ? (
           <div className="flex items-center gap-2 pl-2 border-l border-[#E5E3F2]">

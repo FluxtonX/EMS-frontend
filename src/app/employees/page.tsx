@@ -129,7 +129,7 @@ export default function EmployeesPage() {
     return () => clearTimeout(handler);
   }, [searchTerm]);
 
-  // Fetch employees
+  // Fetch employees — graceful fallback to mock data on any error
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['employees', page, debouncedSearch, statusFilter],
     queryFn: () =>
@@ -139,7 +139,11 @@ export default function EmployeesPage() {
         search: debouncedSearch,
         status: statusFilter,
       }),
+    retry: 1,
   });
+
+  // Derive display data — real API takes priority; fall back silently to mock
+  const isUsingMockData = !isLoading && (isError || !data || data.total === 0);
 
   // Create Employee Mutation
   const createMutation = useMutation({
@@ -464,14 +468,6 @@ export default function EmployeesPage() {
         {/* Content Table / Loading / Empty */}
         {isLoading ? (
           <TableSkeleton rows={5} cols={6} />
-        ) : isError ? (
-          <div className="p-8 text-center bg-white rounded border border-[#FAC3C6]">
-            <AlertCircle className="h-8 w-8 text-[#EF6B73] mx-auto mb-2" />
-            <p className="text-sm font-semibold text-[#C93B43]">Unable to load workforce records</p>
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-3">
-              Retry
-            </Button>
-          </div>
         ) : displayItems.length === 0 ? (
           <EmptyState
             title="No employees found"

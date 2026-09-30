@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { PageContainer } from '@/components/layout/PageContainer';
 import {
   Calendar,
   Clock,
@@ -22,7 +23,7 @@ import {
   UserPlus,
   Info,
 } from 'lucide-react';
-import { Badge } from '@/components/ui';
+import { Badge, Button } from '@/components/ui';
 import { Shift, ShiftStatus, EligibleEmployee } from '@/types/shift';
 import { Site, SiteJob } from '@/types/site';
 import {
@@ -229,40 +230,42 @@ export default function ShiftsPage() {
 
   return (
     <AppShell>
-      <div className="space-y-5">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-[#E5E3F2] pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-[#171A2B]">Shift Rostering & Operations</h1>
-              <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA]">
-                Live Conflict Engine
-              </span>
-            </div>
-            <p className="text-xs text-[#687086] mt-0.5">
-              Strict conflict detection, real-time guard eligibility matching, and open post management.
-            </p>
-          </div>
-
+      <PageContainer
+        title="Shift Rostering & Operations"
+        subtitle={
           <div className="flex items-center gap-2">
-            {isUsingMockData && (
-              <Badge variant="info" size="sm" className="gap-1">
-                <Info className="h-3 w-3 text-[#6C5CE7]" />
-                Sample Rota Preview
-              </Badge>
-            )}
-            <button
-              onClick={() => {
-                setFormData((prev) => ({ ...prev, shiftDate: selectedDate }));
-                setIsCreateOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded text-xs font-medium transition-colors shadow-sm"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Schedule Shift
-            </button>
+            <span>Strict conflict detection, real-time guard eligibility matching, and open post management.</span>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA]">
+              Live Conflict Engine
+            </span>
           </div>
-        </div>
+        }
+        breadcrumbs={[
+          { label: 'Workforce Platform', href: '/' },
+          { label: 'Shifts' },
+        ]}
+        primaryAction={
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              setFormData((prev) => ({ ...prev, shiftDate: selectedDate }));
+              setIsCreateOpen(true);
+            }}
+          >
+            Schedule Shift
+          </Button>
+        }
+        secondaryActions={
+          isUsingMockData ? (
+            <Badge variant="info" size="sm" className="gap-1">
+              <Info className="h-3 w-3 text-[#6C5CE7]" />
+              Sample Rota Preview
+            </Badge>
+          ) : undefined
+        }
+      >
 
         {isUsingMockData && (
           <div className="p-3 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
@@ -864,7 +867,7 @@ export default function ShiftsPage() {
             </div>
           </div>
         )}
-      </div>
+      </PageContainer>
     </AppShell>
   );
 }

@@ -38,7 +38,7 @@ export function TabList({
   return (
     <div
       role="tablist"
-      className={cn('flex items-center space-x-1 border-b border-[#E5E3F2] mb-4', className)}
+      className={cn('flex items-center space-x-0.5 border-b border-[#E5E3F2] mb-4', className)}
     >
       {children}
     </div>
@@ -66,10 +66,14 @@ export function TabTrigger({
       aria-selected={isActive}
       onClick={() => context.setActiveTab(value)}
       className={cn(
-        'inline-flex items-center gap-2 px-3.5 py-2.5 text-xs font-medium border-b-2 -mb-px transition-colors cursor-pointer outline-none select-none',
+        'relative inline-flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 -mb-px transition-all duration-150 cursor-pointer outline-none select-none rounded-t-md',
         isActive
-          ? 'border-[#6C5CE7] text-[#6C5CE7]'
-          : 'border-transparent text-[#687086] hover:text-[#171A2B] hover:border-[#D5D0FA]',
+          ? [
+              'border-[#6C5CE7] text-[#6C5CE7] bg-white',
+              // Inset top shadow on active tab
+              'shadow-[inset_0_3px_6px_rgba(108,92,231,0.14)]',
+            ].join(' ')
+          : 'border-transparent text-[#687086] hover:text-[#171A2B] hover:border-[#D5D0FA] hover:bg-[#F5F3FF]',
         className
       )}
     >

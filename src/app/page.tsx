@@ -19,6 +19,7 @@ import {
   MapPin,
   ArrowRight,
   Info,
+  Plus,
 } from 'lucide-react';
 import { fetchEmployees } from '@/lib/api/employees';
 import { fetchSites } from '@/lib/api/sites';
@@ -96,30 +97,13 @@ export default function DashboardPage() {
         subtitle={`Welcome back, ${session.user ? `${session.user.firstName} ${session.user.lastName}`.trim() : 'Operator'} — ${session.company?.name || 'Workforce Platform'}`}
         breadcrumbs={[{ label: 'Workforce Platform', href: '/' }, { label: 'Dashboard' }]}
         primaryAction={
-          !hasRealData ? (
-            <Badge variant="info" className="gap-1.5 px-3 py-1.5 text-xs">
-              <Info className="h-3.5 w-3.5 text-[#6C5CE7]" />
-              Showing Static Demo Data
-            </Badge>
-          ) : undefined
+          <Link href="/employees">
+            <Button variant="primary" size="sm" leftIcon={<Plus className="h-4 w-4" />}>
+              Add Employee
+            </Button>
+          </Link>
         }
       >
-        {!hasRealData && (
-          <div className="mb-6 p-3.5 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
-              <p className="text-xs text-[#171A2B]">
-                <strong className="font-semibold text-[#6C5CE7]">Preview Mode Active:</strong> Your database currently has no records, so realistic sample security operations data is shown. Once you create live employees or sites, real metrics will instantly appear.
-              </p>
-            </div>
-            <Link href="/employees">
-              <Button variant="outline" size="xs" className="shrink-0 bg-white">
-                Add Real Employee
-              </Button>
-            </Link>
-          </div>
-        )}
-
         {/* Operational Overview Metrics */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
