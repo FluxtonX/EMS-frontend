@@ -1,4 +1,5 @@
 import { Employee, PaginatedEmployeesResponse } from '@/types/employee';
+import { apiCache } from '@/lib/cache/apiCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -41,31 +42,47 @@ export async function fetchEmployees(params: {
   if (params.sortBy) query.set('sortBy', params.sortBy);
   if (params.sortOrder) query.set('sortOrder', params.sortOrder);
 
-  const res = await fetch(`${API_BASE_URL}/employees?${query.toString()}`, {
-    headers: getAuthHeaders(params.token),
-  });
+  const cacheKey = `employees:list:${query.toString()}`;
 
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || 'Failed to fetch employees.');
-  }
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/employees?${query.toString()}`, {
+        headers: getAuthHeaders(params.token),
+      });
 
-  const json = await res.json();
-  return json.data;
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch employees.');
+      }
+
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function fetchEmployeeById(id: string, token?: string): Promise<Employee> {
-  const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
-    headers: getAuthHeaders(token),
-  });
+  const cacheKey = `employees:detail:${id}`;
 
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || `Failed to fetch employee ${id}`);
-  }
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
+        headers: getAuthHeaders(token),
+      });
 
-  const json = await res.json();
-  return json.data;
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || `Failed to fetch employee ${id}`);
+      }
+
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function createEmployeeApi(data: any, token?: string): Promise<Employee> {
@@ -80,6 +97,7 @@ export async function createEmployeeApi(data: any, token?: string): Promise<Empl
     throw new Error(errorJson?.error?.message || 'Failed to create employee record.');
   }
 
+  apiCache.invalidate('employees');
   const json = await res.json();
   return json.data;
 }
@@ -96,6 +114,47 @@ export async function updateEmployeeApi(id: string, data: any, token?: string): 
     throw new Error(errorJson?.error?.message || 'Failed to update employee record.');
   }
 
+  apiCache.invalidate('employees');
   const json = await res.json();
   return json.data;
 }
+
+export async function onboardEmployeeApi(data: any, token?: string): Promise<{
+  message: string;
+  employee: Employee;
+  licence?: any;
+  assignment?: any;
+  invitation?: any;
+}> {
+  const res = await fetch(`${API_BASE_URL}/employees/onboard`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.message || errorJson?.error?.message || 'Failed to onboard employee.');
+  }
+
+  apiCache.invalidate('employees');
+  const json = await res.json();
+  return json.data || json;
+}
+
+export async function resendEmployeeInviteApi(id: string, token?: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE_URL}/employees/${id}/resend-invite`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+  });
+
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.message || errorJson?.error?.message || 'Failed to resend invitation.');
+  }
+
+  apiCache.invalidate('employees');
+  const json = await res.json();
+  return json.data || json;
+}
+

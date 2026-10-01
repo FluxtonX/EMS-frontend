@@ -230,7 +230,7 @@ export default function TimesheetsPage() {
           </div>
         }
         breadcrumbs={[
-          { label: 'Workforce Platform', href: '/' },
+          { label: 'Workforce Platform', href: '/dashboard' },
           { label: 'Timesheets' },
         ]}
         primaryAction={

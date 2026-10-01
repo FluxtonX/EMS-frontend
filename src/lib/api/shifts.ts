@@ -4,6 +4,7 @@ import {
   UpdateShiftInput,
   EligibleEmployee,
 } from '@/types/shift';
+import { apiCache } from '@/lib/cache/apiCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -43,27 +44,43 @@ export async function fetchShiftsApi(params: {
   if (params.endDate) url.searchParams.append('endDate', params.endDate);
   if (params.status && params.status !== 'all') url.searchParams.append('status', params.status);
 
-  const res = await fetch(url.toString(), {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || 'Failed to fetch shifts.');
-  }
-  const json = await res.json();
-  return json.data;
+  const cacheKey = `shifts:list:${url.searchParams.toString()}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(url.toString(), {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch shifts.');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 3 * 60 * 1000 }
+  );
 }
 
 export async function fetchShiftByIdApi(id: string): Promise<Shift> {
-  const res = await fetch(`${API_BASE_URL}/shifts/${id}`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || 'Failed to fetch shift.');
-  }
-  const json = await res.json();
-  return json.data;
+  const cacheKey = `shifts:detail:${id}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/shifts/${id}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch shift.');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 3 * 60 * 1000 }
+  );
 }
 
 export async function createShiftApi(payload: CreateShiftInput): Promise<Shift> {
@@ -76,6 +93,7 @@ export async function createShiftApi(payload: CreateShiftInput): Promise<Shift> 
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to create shift.');
   }
+  apiCache.invalidate('shifts');
   const json = await res.json();
   return json.data;
 }
@@ -90,6 +108,7 @@ export async function updateShiftApi(id: string, payload: UpdateShiftInput): Pro
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to update shift.');
   }
+  apiCache.invalidate('shifts');
   const json = await res.json();
   return json.data;
 }
@@ -103,6 +122,7 @@ export async function deleteShiftApi(id: string): Promise<{ success: boolean; me
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to delete shift.');
   }
+  apiCache.invalidate('shifts');
   const json = await res.json();
   return json.data;
 }
@@ -121,13 +141,21 @@ export async function fetchEligibleEmployeesApi(params: {
   url.searchParams.append('startTime', params.startTime);
   url.searchParams.append('endTime', params.endTime);
 
-  const res = await fetch(url.toString(), {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || 'Failed to fetch eligible employees.');
-  }
-  const json = await res.json();
-  return json.data;
+  const cacheKey = `shifts:eligible:${url.searchParams.toString()}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(url.toString(), {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch eligible employees.');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 3 * 60 * 1000 }
+  );
 }

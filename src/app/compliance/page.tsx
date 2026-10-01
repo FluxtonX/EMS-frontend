@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { useWorkforceStore } from '@/lib/stores/workforceStore';
 import {
   Button,
   Input,
@@ -58,37 +59,29 @@ export default function CompliancePage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Query licences
+  // Central Workforce Store
   const {
-    data: licencesData,
-    isLoading: licencesLoading,
-    refetch: refetchLicences,
-  } = useQuery({
-    queryKey: ['licences', activeTab, searchTerm],
-    queryFn: () =>
-      fetchLicencesApi({
-        status: activeTab === 'all' ? undefined : activeTab,
-        search: searchTerm || undefined,
-        limit: 100,
-      }),
-  });
+    licences,
+    complianceSummary: summary,
+    hasRealLicences,
+    isLicencesLoading,
+    fetchLicences: syncLicences,
+    createLicence: storeCreateLicence,
+    verifyLicence: storeVerifyLicence,
+    deleteLicence: storeDeleteLicence,
+    employees: storeEmployees,
+    fetchEmployees: syncEmployees,
+  } = useWorkforceStore();
 
-  // Query compliance summary
-  const { data: summaryData } = useQuery({
-    queryKey: ['compliance-summary'],
-    queryFn: fetchComplianceSummaryApi,
-  });
-
-  // Query employees for selection dropdown
-  const { data: employeesData } = useQuery({
-    queryKey: ['employees-for-licence'],
-    queryFn: () => fetchEmployees({ page: 1, limit: 100 }),
-  });
+  useEffect(() => {
+    syncLicences();
+    syncEmployees();
+  }, [syncLicences, syncEmployees]);
 
   // Create licence mutation
   const createMutation = useMutation({
     mutationFn: (payload: { employeeId: string; data: any }) =>
-      createEmployeeLicenceApi(payload.employeeId, payload.data),
+      storeCreateLicence(payload.employeeId, payload.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['licences'] });
       queryClient.invalidateQueries({ queryKey: ['compliance-summary'] });
@@ -108,8 +101,8 @@ export default function CompliancePage() {
 
   // Verify licence mutation
   const verifyMutation = useMutation({
-    mutationFn: (payload: { id: string; status: string }) =>
-      verifyLicenceApi(payload.id, payload.status),
+    mutationFn: (payload: { id: string; status: any }) =>
+      storeVerifyLicence(payload.id, payload.status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['licences'] });
       queryClient.invalidateQueries({ queryKey: ['compliance-summary'] });
@@ -119,22 +112,17 @@ export default function CompliancePage() {
 
   // Delete licence mutation
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => deleteLicenceApi(id),
+    mutationFn: (id: string) => storeDeleteLicence(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['licences'] });
       queryClient.invalidateQueries({ queryKey: ['compliance-summary'] });
     },
   });
 
-  // Fallback to mock data if real database is currently empty
-  const hasRealLicences = (licencesData?.items?.length ?? 0) > 0;
-  const isUsingMockData = !hasRealLicences && !licencesLoading;
+  const isUsingMockData = !hasRealLicences;
 
   const displayLicences: EmployeeLicence[] = useMemo(() => {
-    if (hasRealLicences) {
-      return licencesData?.items || [];
-    }
-    let list = mockLicences;
+    let list = licences;
     if (activeTab !== 'all') {
       list = list.filter((l) => l.status === activeTab);
     }
@@ -148,10 +136,9 @@ export default function CompliancePage() {
       );
     }
     return list;
-  }, [hasRealLicences, licencesData, activeTab, searchTerm]);
+  }, [licences, activeTab, searchTerm]);
 
-  const summary = summaryData || mockComplianceSummary;
-  const availableEmployees = employeesData?.items?.length ? employeesData.items : mockEmployees;
+  const availableEmployees = storeEmployees;
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,7 +247,7 @@ export default function CompliancePage() {
           </div>
         }
         breadcrumbs={[
-          { label: 'Workforce Platform', href: '/' },
+          { label: 'Workforce Platform', href: '/dashboard' },
           { label: 'Compliance' },
         ]}
         primaryAction={
@@ -373,7 +360,7 @@ export default function CompliancePage() {
         </div>
 
         {/* Table Content */}
-        {licencesLoading ? (
+        {isLicencesLoading && licences.length === 0 ? (
           <TableSkeleton rows={5} cols={6} />
         ) : displayLicences.length === 0 ? (
           <EmptyState

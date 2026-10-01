@@ -241,7 +241,7 @@ export default function ShiftsPage() {
           </div>
         }
         breadcrumbs={[
-          { label: 'Workforce Platform', href: '/' },
+          { label: 'Workforce Platform', href: '/dashboard' },
           { label: 'Shifts' },
         ]}
         primaryAction={

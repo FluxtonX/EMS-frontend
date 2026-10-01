@@ -16,10 +16,19 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // If already authenticated, redirect to dashboard
+  // Helper to determine destination portal based on role per Spec Section 8 & 9
+  const getPortalDestination = (role?: string | null) => {
+    const normalized = (role || '').toUpperCase().trim();
+    if (normalized === 'EMPLOYEE') {
+      return '/employee/dashboard';
+    }
+    return '/dashboard';
+  };
+
+  // If already authenticated, redirect to appropriate portal
   useEffect(() => {
     if (!authLoading && session) {
-      router.replace('/');
+      router.replace(getPortalDestination(session.company?.role));
     }
   }, [authLoading, session, router]);
 
@@ -30,7 +39,15 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push('/');
+      const stored = typeof window !== 'undefined' ? localStorage.getItem('workforce_auth_session') : null;
+      let targetPath = '/dashboard';
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          targetPath = getPortalDestination(parsed.company?.role);
+        } catch {}
+      }
+      router.push(targetPath);
     } catch (err: any) {
       setError(err.message || 'Authentication failed. Please check your credentials.');
     } finally {

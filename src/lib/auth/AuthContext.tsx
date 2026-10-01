@@ -23,22 +23,22 @@ const AuthContext = createContext<AuthContextType | null>(null);
 const SESSION_STORAGE_KEY = 'workforce_auth_session';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-      if (stored) {
-        const parsed: AuthSession = JSON.parse(stored);
-        setSession(parsed);
+  const [session, setSession] = useState<AuthSession | null>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch {
+        localStorage.removeItem(SESSION_STORAGE_KEY);
       }
-    } catch {
-      localStorage.removeItem(SESSION_STORAGE_KEY);
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
+    return null;
+  });
+  
+  // Initialize isLoading to false since we loaded synchronously from localStorage
+  const [isLoading, setIsLoading] = useState(false);
 
   const login = async (email: string, pass: string) => {
     setIsLoading(true);

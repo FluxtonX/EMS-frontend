@@ -1,3 +1,5 @@
+import { apiCache } from '@/lib/cache/apiCache';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 function getAuthHeaders(): Record<string, string> {
@@ -218,42 +220,46 @@ export async function fetchPayRunsApi(params?: {
   startDate?: string;
   endDate?: string;
 }): Promise<PayRun[]> {
-  try {
-    const q = new URLSearchParams();
-    if (params?.status && params.status !== 'all') q.append('status', params.status);
-    if (params?.startDate) q.append('startDate', params.startDate);
-    if (params?.endDate) q.append('endDate', params.endDate);
+  const cacheKey = `payroll_runs_${params?.status || 'all'}_${params?.startDate || ''}_${params?.endDate || ''}`;
+  return apiCache.withCache(cacheKey, async () => {
+    try {
+      const q = new URLSearchParams();
+      if (params?.status && params.status !== 'all') q.append('status', params.status);
+      if (params?.startDate) q.append('startDate', params.startDate);
+      if (params?.endDate) q.append('endDate', params.endDate);
 
-    const res = await fetch(`${API_BASE_URL}/payroll/runs?${q.toString()}`, {
-      headers: getAuthHeaders(),
-      cache: 'no-store',
-    });
+      const res = await fetch(`${API_BASE_URL}/payroll/runs?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
 
-    if (!res.ok) throw new Error(`Failed to fetch pay runs: ${res.statusText}`);
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) return data;
-    return FALLBACK_PAY_RUNS;
-  } catch (err) {
-    console.warn('Backend pay runs fetch failed, using fallback data:', err);
-    return FALLBACK_PAY_RUNS;
-  }
+      if (!res.ok) throw new Error(`Failed to fetch pay runs: ${res.statusText}`);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+      return FALLBACK_PAY_RUNS;
+    } catch (err) {
+      console.warn('Backend pay runs fetch failed, using fallback data:', err);
+      return FALLBACK_PAY_RUNS;
+    }
+  }, { ttlMs: 5 * 60 * 1000 });
 }
 
 export async function fetchPayRunByIdApi(id: string): Promise<PayRun> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/payroll/runs/${id}`, {
-      headers: getAuthHeaders(),
-      cache: 'no-store',
-    });
+  const cacheKey = `payroll_run_${id}`;
+  return apiCache.withCache(cacheKey, async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/payroll/runs/${id}`, {
+        headers: getAuthHeaders(),
+      });
 
-    if (!res.ok) throw new Error(`Failed to fetch pay run details: ${res.statusText}`);
-    return await res.json();
-  } catch (err) {
-    console.warn(`Backend pay run ${id} fetch failed, using fallback:`, err);
-    const found = FALLBACK_PAY_RUNS.find((p) => p.id === id);
-    if (found) return found;
-    throw err;
-  }
+      if (!res.ok) throw new Error(`Failed to fetch pay run details: ${res.statusText}`);
+      return await res.json();
+    } catch (err) {
+      console.warn(`Backend pay run ${id} fetch failed, using fallback:`, err);
+      const found = FALLBACK_PAY_RUNS.find((p) => p.id === id);
+      if (found) return found;
+      throw err;
+    }
+  }, { ttlMs: 5 * 60 * 1000 });
 }
 
 export async function createPayRunApi(dto: {
@@ -264,6 +270,7 @@ export async function createPayRunApi(dto: {
   frequency?: string;
   notes?: string;
 }): Promise<PayRun> {
+  apiCache.invalidate('payroll');
   const res = await fetch(`${API_BASE_URL}/payroll/runs`, {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -275,7 +282,9 @@ export async function createPayRunApi(dto: {
     throw new Error(errData.message || `Failed to create pay run (${res.status})`);
   }
 
-  return await res.json();
+  const result = await res.json();
+  apiCache.invalidate('payroll');
+  return result;
 }
 
 export async function reviewPayRunApi(
@@ -285,6 +294,7 @@ export async function reviewPayRunApi(
     notes?: string;
   }
 ): Promise<PayRun> {
+  apiCache.invalidate('payroll');
   const res = await fetch(`${API_BASE_URL}/payroll/runs/${id}/review`, {
     method: 'PATCH',
     headers: getAuthHeaders(),
@@ -296,7 +306,9 @@ export async function reviewPayRunApi(
     throw new Error(errData.message || `Failed to update pay run (${res.status})`);
   }
 
-  return await res.json();
+  const result = await res.json();
+  apiCache.invalidate('payroll');
+  return result;
 }
 
 export async function fetchPayslipsApi(params?: {
@@ -304,42 +316,46 @@ export async function fetchPayslipsApi(params?: {
   employeeId?: string;
   status?: string;
 }): Promise<Payslip[]> {
-  try {
-    const q = new URLSearchParams();
-    if (params?.payRunId) q.append('payRunId', params.payRunId);
-    if (params?.employeeId) q.append('employeeId', params.employeeId);
-    if (params?.status && params.status !== 'all') q.append('status', params.status);
+  const cacheKey = `payroll_payslips_${params?.payRunId || ''}_${params?.employeeId || ''}_${params?.status || ''}`;
+  return apiCache.withCache(cacheKey, async () => {
+    try {
+      const q = new URLSearchParams();
+      if (params?.payRunId) q.append('payRunId', params.payRunId);
+      if (params?.employeeId) q.append('employeeId', params.employeeId);
+      if (params?.status && params.status !== 'all') q.append('status', params.status);
 
-    const res = await fetch(`${API_BASE_URL}/payroll/payslips?${q.toString()}`, {
-      headers: getAuthHeaders(),
-      cache: 'no-store',
-    });
+      const res = await fetch(`${API_BASE_URL}/payroll/payslips?${q.toString()}`, {
+        headers: getAuthHeaders(),
+      });
 
-    if (!res.ok) throw new Error(`Failed to fetch payslips: ${res.statusText}`);
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) return data;
-    return FALLBACK_PAY_RUNS[0].payslips || [];
-  } catch (err) {
-    console.warn('Backend fetch payslips failed, using fallback:', err);
-    return FALLBACK_PAY_RUNS[0].payslips || [];
-  }
+      if (!res.ok) throw new Error(`Failed to fetch payslips: ${res.statusText}`);
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) return data;
+      return FALLBACK_PAY_RUNS[0].payslips || [];
+    } catch (err) {
+      console.warn('Backend fetch payslips failed, using fallback:', err);
+      return FALLBACK_PAY_RUNS[0].payslips || [];
+    }
+  }, { ttlMs: 5 * 60 * 1000 });
 }
 
 export async function fetchPayslipByIdApi(id: string): Promise<Payslip> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/payroll/payslips/${id}`, {
-      headers: getAuthHeaders(),
-      cache: 'no-store',
-    });
+  const cacheKey = `payroll_payslip_${id}`;
+  return apiCache.withCache(cacheKey, async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/payroll/payslips/${id}`, {
+        headers: getAuthHeaders(),
+      });
 
-    if (!res.ok) throw new Error(`Failed to fetch payslip: ${res.statusText}`);
-    return await res.json();
-  } catch (err) {
-    const all = FALLBACK_PAY_RUNS[0].payslips || [];
-    const found = all.find((p) => p.id === id);
-    if (found) return found;
-    throw err;
-  }
+      if (!res.ok) throw new Error(`Failed to fetch payslip: ${res.statusText}`);
+      return await res.json();
+    } catch (err) {
+      const all = FALLBACK_PAY_RUNS[0].payslips || [];
+      const found = all.find((p) => p.id === id);
+      if (found) return found;
+      throw err;
+    }
+  }, { ttlMs: 5 * 60 * 1000 });
 }
 
 export function getPayRunExportUrl(id: string): string {

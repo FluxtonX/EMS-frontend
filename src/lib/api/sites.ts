@@ -1,4 +1,5 @@
 import { Site, JobType, SiteJob } from '@/types/site';
+import { apiCache } from '@/lib/cache/apiCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -25,27 +26,39 @@ function getAuthHeaders(token?: string) {
 }
 
 export async function fetchSites(): Promise<Site[]> {
-  const res = await fetch(`${API_BASE_URL}/sites`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || 'Failed to fetch sites.');
-  }
-  const json = await res.json();
-  return json.data;
+  return apiCache.withCache(
+    'sites:list',
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/sites`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch sites.');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 10 * 60 * 1000 }
+  );
 }
 
 export async function fetchSiteById(id: string): Promise<Site> {
-  const res = await fetch(`${API_BASE_URL}/sites/${id}`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || `Failed to fetch site ${id}`);
-  }
-  const json = await res.json();
-  return json.data;
+  return apiCache.withCache(
+    `sites:detail:${id}`,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/sites/${id}`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || `Failed to fetch site ${id}`);
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 10 * 60 * 1000 }
+  );
 }
 
 export async function createSiteApi(data: any): Promise<Site> {
@@ -58,20 +71,27 @@ export async function createSiteApi(data: any): Promise<Site> {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to create site.');
   }
+  apiCache.invalidate('sites');
   const json = await res.json();
   return json.data;
 }
 
 export async function fetchJobTypes(): Promise<JobType[]> {
-  const res = await fetch(`${API_BASE_URL}/job-types`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || 'Failed to fetch job roles.');
-  }
-  const json = await res.json();
-  return json.data;
+  return apiCache.withCache(
+    'job-types:list',
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/job-types`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch job roles.');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 10 * 60 * 1000 }
+  );
 }
 
 export async function createJobTypeApi(data: any): Promise<JobType> {
@@ -84,20 +104,27 @@ export async function createJobTypeApi(data: any): Promise<JobType> {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to create job role.');
   }
+  apiCache.invalidate('job-types');
   const json = await res.json();
   return json.data;
 }
 
 export async function fetchSiteJobs(siteId: string): Promise<SiteJob[]> {
-  const res = await fetch(`${API_BASE_URL}/sites/${siteId}/jobs`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || 'Failed to fetch site job rates.');
-  }
-  const json = await res.json();
-  return json.data;
+  return apiCache.withCache(
+    `sites:jobs:${siteId}`,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/sites/${siteId}/jobs`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch site job rates.');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 10 * 60 * 1000 }
+  );
 }
 
 export async function addSiteJobApi(siteId: string, data: any): Promise<SiteJob> {
@@ -110,6 +137,8 @@ export async function addSiteJobApi(siteId: string, data: any): Promise<SiteJob>
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to attach job role to site.');
   }
+  apiCache.invalidate(`sites:jobs:${siteId}`);
+  apiCache.invalidate('sites');
   const json = await res.json();
   return json.data;
 }
@@ -124,6 +153,8 @@ export async function updateSiteJobApi(siteId: string, jobId: string, data: any)
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to update job rates.');
   }
+  apiCache.invalidate(`sites:jobs:${siteId}`);
+  apiCache.invalidate('sites');
   const json = await res.json();
   return json.data;
 }

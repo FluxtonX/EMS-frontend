@@ -1,4 +1,5 @@
 import { EmployeeDocument, UploadDocumentPayload } from '@/types/document';
+import { apiCache } from '@/lib/cache/apiCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -37,20 +38,29 @@ export async function uploadEmployeeDocumentApi(
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to upload document.');
   }
+  apiCache.invalidate('documents');
   const json = await res.json();
   return json.data || json;
 }
 
 export async function fetchEmployeeDocumentsApi(employeeId: string): Promise<EmployeeDocument[]> {
-  const res = await fetch(`${API_BASE_URL}/employees/${employeeId}/documents`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch employee documents.');
-  }
-  const json = await res.json();
-  return json.data || json;
+  const cacheKey = `documents:employee:${employeeId}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/employees/${employeeId}/documents`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch employee documents.');
+      }
+      const json = await res.json();
+      return json.data || json;
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function fetchDocumentDownloadUrlApi(
@@ -80,6 +90,7 @@ export async function verifyDocumentApi(
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to verify document.');
   }
+  apiCache.invalidate('documents');
   const json = await res.json();
   return json.data || json;
 }
@@ -93,5 +104,6 @@ export async function deleteDocumentApi(documentId: string): Promise<boolean> {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to delete document.');
   }
+  apiCache.invalidate('documents');
   return true;
 }

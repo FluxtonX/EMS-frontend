@@ -1,3 +1,5 @@
+import { apiCache } from '@/lib/cache/apiCache';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 function getAuthHeaders(): Record<string, string> {
@@ -332,28 +334,32 @@ const MOCK_INVOICES: Invoice[] = [
 export const clientsApi = {
   // --- Clients ---
   async getClients(params?: { status?: string; search?: string }): Promise<Client[]> {
-    try {
-      const qs = new URLSearchParams();
-      if (params?.status) qs.append('status', params.status);
-      if (params?.search) qs.append('search', params.search);
-      const res = await fetch(`${API_BASE_URL}/clients?${qs.toString()}`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return (data.data || data) as Client[];
-    } catch {
-      let filtered = [...MOCK_CLIENTS];
-      if (params?.status) filtered = filtered.filter(c => c.status === params.status);
-      if (params?.search) {
-        const s = params.search.toLowerCase();
-        filtered = filtered.filter(c => c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s));
+    const cacheKey = `clients_list_${params?.status || 'all'}_${params?.search || ''}`;
+    return apiCache.withCache(cacheKey, async () => {
+      try {
+        const qs = new URLSearchParams();
+        if (params?.status) qs.append('status', params.status);
+        if (params?.search) qs.append('search', params.search);
+        const res = await fetch(`${API_BASE_URL}/clients?${qs.toString()}`, {
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return (data.data || data) as Client[];
+      } catch {
+        let filtered = [...MOCK_CLIENTS];
+        if (params?.status) filtered = filtered.filter(c => c.status === params.status);
+        if (params?.search) {
+          const s = params.search.toLowerCase();
+          filtered = filtered.filter(c => c.name.toLowerCase().includes(s) || c.code.toLowerCase().includes(s));
+        }
+        return filtered;
       }
-      return filtered;
-    }
+    }, { ttlMs: 10 * 60 * 1000 });
   },
 
   async createClient(dto: CreateClientDto): Promise<Client> {
+    apiCache.invalidate('clients');
     try {
       const res = await fetch(`${API_BASE_URL}/clients`, {
         method: 'POST',
@@ -362,6 +368,7 @@ export const clientsApi = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      apiCache.invalidate('clients');
       return (data.data || data) as Client;
     } catch {
       const newClient: Client = {
@@ -381,31 +388,37 @@ export const clientsApi = {
         updatedAt: new Date().toISOString(),
       };
       MOCK_CLIENTS.unshift(newClient);
+      apiCache.invalidate('clients');
       return newClient;
     }
   },
 
   // --- Contracts ---
   async getContracts(params?: { clientId?: string; status?: string }): Promise<Contract[]> {
-    try {
-      const qs = new URLSearchParams();
-      if (params?.clientId) qs.append('clientId', params.clientId);
-      if (params?.status) qs.append('status', params.status);
-      const res = await fetch(`${API_BASE_URL}/clients/contracts/list?${qs.toString()}`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return (data.data || data) as Contract[];
-    } catch {
-      let filtered = [...MOCK_CONTRACTS];
-      if (params?.clientId) filtered = filtered.filter(c => c.clientId === params.clientId);
-      if (params?.status) filtered = filtered.filter(c => c.status === params.status);
-      return filtered;
-    }
+    const cacheKey = `contracts_list_${params?.clientId || 'all'}_${params?.status || 'all'}`;
+    return apiCache.withCache(cacheKey, async () => {
+      try {
+        const qs = new URLSearchParams();
+        if (params?.clientId) qs.append('clientId', params.clientId);
+        if (params?.status) qs.append('status', params.status);
+        const res = await fetch(`${API_BASE_URL}/clients/contracts/list?${qs.toString()}`, {
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return (data.data || data) as Contract[];
+      } catch {
+        let filtered = [...MOCK_CONTRACTS];
+        if (params?.clientId) filtered = filtered.filter(c => c.clientId === params.clientId);
+        if (params?.status) filtered = filtered.filter(c => c.status === params.status);
+        return filtered;
+      }
+    }, { ttlMs: 10 * 60 * 1000 });
   },
 
   async createContract(dto: CreateContractDto): Promise<Contract> {
+    apiCache.invalidate('contracts');
+    apiCache.invalidate('clients');
     try {
       const res = await fetch(`${API_BASE_URL}/clients/contracts/new`, {
         method: 'POST',
@@ -414,6 +427,7 @@ export const clientsApi = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      apiCache.invalidate('contracts');
       return (data.data || data) as Contract;
     } catch {
       const client = MOCK_CLIENTS.find(c => c.id === dto.clientId);
@@ -436,46 +450,55 @@ export const clientsApi = {
         client,
       };
       MOCK_CONTRACTS.unshift(newContract);
+      apiCache.invalidate('contracts');
       return newContract;
     }
   },
 
   // --- Invoices ---
   async getInvoices(params?: { clientId?: string; status?: string }): Promise<Invoice[]> {
-    try {
-      const qs = new URLSearchParams();
-      if (params?.clientId) qs.append('clientId', params.clientId);
-      if (params?.status) qs.append('status', params.status);
-      const res = await fetch(`${API_BASE_URL}/clients/invoices/list?${qs.toString()}`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return (data.data || data) as Invoice[];
-    } catch {
-      let filtered = [...MOCK_INVOICES];
-      if (params?.clientId) filtered = filtered.filter(i => i.clientId === params.clientId);
-      if (params?.status) filtered = filtered.filter(i => i.status === params.status);
-      return filtered;
-    }
+    const cacheKey = `invoices_list_${params?.clientId || 'all'}_${params?.status || 'all'}`;
+    return apiCache.withCache(cacheKey, async () => {
+      try {
+        const qs = new URLSearchParams();
+        if (params?.clientId) qs.append('clientId', params.clientId);
+        if (params?.status) qs.append('status', params.status);
+        const res = await fetch(`${API_BASE_URL}/clients/invoices/list?${qs.toString()}`, {
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return (data.data || data) as Invoice[];
+      } catch {
+        let filtered = [...MOCK_INVOICES];
+        if (params?.clientId) filtered = filtered.filter(i => i.clientId === params.clientId);
+        if (params?.status) filtered = filtered.filter(i => i.status === params.status);
+        return filtered;
+      }
+    }, { ttlMs: 5 * 60 * 1000 });
   },
 
   async getInvoiceById(id: string): Promise<Invoice> {
-    try {
-      const res = await fetch(`${API_BASE_URL}/clients/invoices/${id}`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return (data.data || data) as Invoice;
-    } catch {
-      const inv = MOCK_INVOICES.find(i => i.id === id);
-      if (!inv) throw new Error('Invoice not found');
-      return inv;
-    }
+    const cacheKey = `invoice_${id}`;
+    return apiCache.withCache(cacheKey, async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/clients/invoices/${id}`, {
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return (data.data || data) as Invoice;
+      } catch {
+        const inv = MOCK_INVOICES.find(i => i.id === id);
+        if (!inv) throw new Error('Invoice not found');
+        return inv;
+      }
+    }, { ttlMs: 5 * 60 * 1000 });
   },
 
   async createInvoice(dto: CreateInvoiceDto): Promise<Invoice> {
+    apiCache.invalidate('invoices');
+    apiCache.invalidate('profitability');
     try {
       const res = await fetch(`${API_BASE_URL}/clients/invoices/new`, {
         method: 'POST',
@@ -484,6 +507,8 @@ export const clientsApi = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      apiCache.invalidate('invoices');
+      apiCache.invalidate('profitability');
       return (data.data || data) as Invoice;
     } catch {
       const subtotal = dto.items.reduce((s, it) => s + it.quantityHours * it.unitPrice, 0);
@@ -523,11 +548,15 @@ export const clientsApi = {
         })),
       };
       MOCK_INVOICES.unshift(newInvoice);
+      apiCache.invalidate('invoices');
+      apiCache.invalidate('profitability');
       return newInvoice;
     }
   },
 
   async updateInvoiceStatus(id: string, status: InvoiceStatus): Promise<Invoice> {
+    apiCache.invalidate('invoices');
+    apiCache.invalidate('profitability');
     try {
       const res = await fetch(`${API_BASE_URL}/clients/invoices/${id}/status`, {
         method: 'PATCH',
@@ -536,43 +565,50 @@ export const clientsApi = {
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      apiCache.invalidate('invoices');
+      apiCache.invalidate('profitability');
       return (data.data || data) as Invoice;
     } catch {
       const inv = MOCK_INVOICES.find(i => i.id === id);
       if (!inv) throw new Error('Invoice not found');
       inv.status = status;
       if (status === 'paid') inv.paidAt = new Date().toISOString();
+      apiCache.invalidate('invoices');
+      apiCache.invalidate('profitability');
       return inv;
     }
   },
 
   // --- Profitability ---
   async getProfitabilitySummary(params?: { periodStart?: string; periodEnd?: string }): Promise<ProfitabilitySummary> {
-    try {
-      const qs = new URLSearchParams();
-      if (params?.periodStart) qs.append('periodStart', params.periodStart);
-      if (params?.periodEnd) qs.append('periodEnd', params.periodEnd);
-      const res = await fetch(`${API_BASE_URL}/clients/profitability?${qs.toString()}`, {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      return (data.data || data) as ProfitabilitySummary;
-    } catch {
-      const grossRevenue = MOCK_INVOICES.reduce((acc, inv) => acc + (inv.status !== 'void' ? inv.subtotal : 0), 0);
-      const totalLaborCost = 25420.50; // Guard wage payroll cost
-      const grossProfit = grossRevenue - totalLaborCost;
-      const marginPercentage = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
-      return {
-        periodStart: params?.periodStart || '2026-09-01',
-        periodEnd: params?.periodEnd || '2026-09-30',
-        grossRevenue,
-        totalLaborCost,
-        grossProfit,
-        marginPercentage: parseFloat(marginPercentage.toFixed(2)),
-        invoiceCount: MOCK_INVOICES.length,
-        currency: 'GBP',
-      };
-    }
+    const cacheKey = `profitability_${params?.periodStart || ''}_${params?.periodEnd || ''}`;
+    return apiCache.withCache(cacheKey, async () => {
+      try {
+        const qs = new URLSearchParams();
+        if (params?.periodStart) qs.append('periodStart', params.periodStart);
+        if (params?.periodEnd) qs.append('periodEnd', params.periodEnd);
+        const res = await fetch(`${API_BASE_URL}/clients/profitability?${qs.toString()}`, {
+          headers: getAuthHeaders(),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        return (data.data || data) as ProfitabilitySummary;
+      } catch {
+        const grossRevenue = MOCK_INVOICES.reduce((acc, inv) => acc + (inv.status !== 'void' ? inv.subtotal : 0), 0);
+        const totalLaborCost = 25420.50; // Guard wage payroll cost
+        const grossProfit = grossRevenue - totalLaborCost;
+        const marginPercentage = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
+        return {
+          periodStart: params?.periodStart || '2026-09-01',
+          periodEnd: params?.periodEnd || '2026-09-30',
+          grossRevenue,
+          totalLaborCost,
+          grossProfit,
+          marginPercentage: parseFloat(marginPercentage.toFixed(2)),
+          invoiceCount: MOCK_INVOICES.length,
+          currency: 'GBP',
+        };
+      }
+    }, { ttlMs: 5 * 60 * 1000 });
   },
 };

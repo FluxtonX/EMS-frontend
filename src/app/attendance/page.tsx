@@ -339,7 +339,7 @@ export default function AttendancePage() {
           </div>
         }
         breadcrumbs={[
-          { label: 'Workforce Platform', href: '/' },
+          { label: 'Workforce Platform', href: '/dashboard' },
           { label: 'Attendance' },
         ]}
         primaryAction={

@@ -4,6 +4,7 @@ import {
   CreateLicencePayload,
   UpdateLicencePayload,
 } from '@/types/licence';
+import { apiCache } from '@/lib/cache/apiCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -30,15 +31,21 @@ function getAuthHeaders(token?: string) {
 }
 
 export async function fetchComplianceSummaryApi(): Promise<ComplianceSummary> {
-  const res = await fetch(`${API_BASE_URL}/licences/compliance-summary`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch compliance summary.');
-  }
-  const json = await res.json();
-  return json.data || json;
+  return apiCache.withCache(
+    'licences:compliance-summary',
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/licences/compliance-summary`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch compliance summary.');
+      }
+      const json = await res.json();
+      return json.data || json;
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function fetchLicencesApi(params: {
@@ -55,27 +62,43 @@ export async function fetchLicencesApi(params: {
   if (params.page) url.searchParams.append('page', params.page.toString());
   if (params.limit) url.searchParams.append('limit', params.limit.toString());
 
-  const res = await fetch(url.toString(), {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch licences.');
-  }
-  const json = await res.json();
-  return json.data || json;
+  const cacheKey = `licences:list:${url.searchParams.toString()}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(url.toString(), {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch licences.');
+      }
+      const json = await res.json();
+      return json.data || json;
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function fetchEmployeeLicencesApi(employeeId: string): Promise<EmployeeLicence[]> {
-  const res = await fetch(`${API_BASE_URL}/employees/${employeeId}/licences`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch employee licences.');
-  }
-  const json = await res.json();
-  return json.data || json;
+  const cacheKey = `licences:employee:${employeeId}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/employees/${employeeId}/licences`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch employee licences.');
+      }
+      const json = await res.json();
+      return json.data || json;
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function createEmployeeLicenceApi(
@@ -91,6 +114,7 @@ export async function createEmployeeLicenceApi(
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to create licence.');
   }
+  apiCache.invalidate('licences');
   const json = await res.json();
   return json.data || json;
 }
@@ -108,6 +132,7 @@ export async function updateLicenceApi(
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to update licence.');
   }
+  apiCache.invalidate('licences');
   const json = await res.json();
   return json.data || json;
 }
@@ -125,6 +150,7 @@ export async function verifyLicenceApi(
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to verify licence.');
   }
+  apiCache.invalidate('licences');
   const json = await res.json();
   return json.data || json;
 }
@@ -138,5 +164,6 @@ export async function deleteLicenceApi(id: string): Promise<boolean> {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to delete licence.');
   }
+  apiCache.invalidate('licences');
   return true;
 }

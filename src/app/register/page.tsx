@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { Button, Input } from '@/components/ui';
-import { Building2, ArrowRight, Lock, Eye, EyeOff } from 'lucide-react';
+import { Building2, ArrowRight, Lock, Eye, EyeOff, Phone } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -33,7 +33,7 @@ export default function RegisterPage() {
 
     try {
       await register(formData);
-      router.push('/');
+      router.push('/dashboard');
     } catch (err: any) {
       setError(err.message || 'Registration failed.');
     } finally {
@@ -96,7 +96,9 @@ export default function RegisterPage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#687086] mb-1">Work Email</label>
+            <label className="block text-xs font-semibold text-[#687086] mb-1">
+              Work Email <span className="text-[#EF6B73]">*</span>
+            </label>
             <Input
               type="email"
               name="email"
@@ -104,6 +106,21 @@ export default function RegisterPage() {
               required
               value={formData.email}
               onChange={handleChange}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-[#687086] mb-1">
+              Phone Number <span className="text-[#EF6B73]">*</span>
+            </label>
+            <Input
+              type="tel"
+              name="phone"
+              placeholder="+44 7911 123456"
+              required
+              value={formData.phone}
+              onChange={handleChange}
+              leftIcon={<Phone className="h-4 w-4 text-[#9096A9]" />}
             />
           </div>
 

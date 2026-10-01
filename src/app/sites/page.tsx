@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageContainer } from '@/components/layout/PageContainer';
+import { useWorkforceStore } from '@/lib/stores/workforceStore';
 import {
   Button,
   Input,
@@ -91,22 +92,26 @@ export default function SitesPage() {
     currency: 'GBP',
   });
 
-  // Data Queries
-  const { data: realSites = [], isLoading: isLoadingSites } = useQuery({
-    queryKey: ['sites'],
-    queryFn: fetchSites,
-  });
+  // Workforce Central Store
+  const {
+    sites,
+    jobTypes,
+    hasRealSites,
+    isSitesLoading,
+    isSitesRefreshing,
+    isJobTypesLoading: isLoadingJobTypes,
+    fetchSites: syncSites,
+    fetchJobTypes: syncJobTypes,
+    createSite: storeCreateSite,
+    createJobType: storeCreateJobType,
+    addSiteJob: storeAddSiteJob,
+    updateSiteJob: storeUpdateSiteJob,
+  } = useWorkforceStore();
 
-  const { data: realJobTypes = [], isLoading: isLoadingJobTypes } = useQuery({
-    queryKey: ['job-types'],
-    queryFn: fetchJobTypes,
-  });
-
-  const hasRealSites = realSites.length > 0;
-  const sites = hasRealSites ? realSites : mockSites;
-
-  const hasRealJobTypes = realJobTypes.length > 0;
-  const jobTypes = hasRealJobTypes ? realJobTypes : mockJobTypes;
+  useEffect(() => {
+    syncSites();
+    syncJobTypes();
+  }, [syncSites, syncJobTypes]);
 
   const { data: realSiteJobs = [], isLoading: isLoadingSiteJobs } = useQuery({
     queryKey: ['site-jobs', selectedSiteForRates?.id],
@@ -116,9 +121,9 @@ export default function SitesPage() {
 
   const siteJobs = hasRealSites ? realSiteJobs : (selectedSiteForRates?.jobs || []);
 
-  // Mutations
+  // Mutations backed by instant store state
   const createSiteMutation = useMutation({
-    mutationFn: createSiteApi,
+    mutationFn: (payload: any) => storeCreateSite(payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sites'] });
       toast.success(`Deployment site ${data.name} [${data.code}] registered successfully.`);
@@ -138,7 +143,7 @@ export default function SitesPage() {
   });
 
   const createJobTypeMutation = useMutation({
-    mutationFn: createJobTypeApi,
+    mutationFn: (payload: any) => storeCreateJobType(payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['job-types'] });
       toast.success(`Role catalog updated: ${data.name} added.`);
@@ -150,7 +155,7 @@ export default function SitesPage() {
   });
 
   const addSiteJobMutation = useMutation({
-    mutationFn: ({ siteId, data }: { siteId: string; data: any }) => addSiteJobApi(siteId, data),
+    mutationFn: ({ siteId, data }: { siteId: string; data: any }) => storeAddSiteJob(siteId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site-jobs', selectedSiteForRates?.id] });
       queryClient.invalidateQueries({ queryKey: ['sites'] });
@@ -165,7 +170,7 @@ export default function SitesPage() {
 
   const updateSiteJobMutation = useMutation({
     mutationFn: ({ siteId, jobId, data }: { siteId: string; jobId: string; data: any }) =>
-      updateSiteJobApi(siteId, jobId, data),
+      storeUpdateSiteJob(siteId, jobId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site-jobs', selectedSiteForRates?.id] });
       toast.success('Site rates updated.');
@@ -305,7 +310,7 @@ export default function SitesPage() {
 
         {/* Sites Table */}
         <div className="bg-white border border-[#E5E3F2] rounded-lg shadow-xs overflow-hidden">
-          {isLoadingSites ? (
+          {isSitesLoading && sites.length === 0 ? (
             <TableSkeleton rows={5} cols={6} />
           ) : filteredSites.length === 0 ? (
             <EmptyState

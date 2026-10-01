@@ -2,6 +2,20 @@ import { Site, SiteJob } from './site';
 
 export type AssignmentStatus = 'active' | 'completed' | 'transferred' | 'cancelled';
 
+export interface AssignmentEmployee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber: string;
+  email?: string;
+  phone?: string;
+  jobTitle?: string;
+  department?: string;
+  status?: string;
+  accountStatus?: string;
+  photoUrl?: string;
+}
+
 export interface Assignment {
   id: string;
   companyId: string;
@@ -11,7 +25,8 @@ export interface Assignment {
   startDate: string;
   endDate?: string;
   status: AssignmentStatus;
-  siteJob?: SiteJob & { site: Site };
+  employee?: AssignmentEmployee;
+  siteJob?: SiteJob & { site: Site; jobType?: { id: string; name: string; code: string } };
   createdAt: string;
   updatedAt: string;
 }

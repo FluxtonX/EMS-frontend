@@ -1,3 +1,5 @@
+import { apiCache } from '@/lib/cache/apiCache';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 function getAuthHeaders(): Record<string, string> {
@@ -73,13 +75,21 @@ export async function fetchLeaveRequestsApi(params: {
   if (params.startDate) url.searchParams.append('startDate', params.startDate);
   if (params.endDate) url.searchParams.append('endDate', params.endDate);
 
-  const res = await fetch(url.toString(), { headers: getAuthHeaders() });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || 'Failed to fetch leave requests');
-  }
-  const json = await res.json();
-  return json.data;
+  const cacheKey = `leave:list:${url.searchParams.toString()}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(url.toString(), { headers: getAuthHeaders() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || 'Failed to fetch leave requests');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function createLeaveRequestApi(payload: CreateLeavePayload): Promise<LeaveRequest> {
@@ -92,6 +102,7 @@ export async function createLeaveRequestApi(payload: CreateLeavePayload): Promis
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || 'Failed to create leave request');
   }
+  apiCache.invalidate('leave');
   const json = await res.json();
   return json.data;
 }
@@ -106,6 +117,7 @@ export async function reviewLeaveRequestApi(id: string, payload: ReviewLeavePayl
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || 'Failed to review leave request');
   }
+  apiCache.invalidate('leave');
   const json = await res.json();
   return json.data;
 }
@@ -119,18 +131,27 @@ export async function cancelLeaveRequestApi(id: string): Promise<LeaveRequest> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || 'Failed to cancel leave request');
   }
+  apiCache.invalidate('leave');
   const json = await res.json();
   return json.data;
 }
 
 export async function fetchLeaveStatsApi(employeeId: string): Promise<LeaveStats> {
-  const res = await fetch(`${API_BASE_URL}/leave/employee/${employeeId}/stats`, {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || 'Failed to fetch leave stats');
-  }
-  const json = await res.json();
-  return json.data;
+  const cacheKey = `leave:stats:${employeeId}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/leave/employee/${employeeId}/stats`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || 'Failed to fetch leave stats');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }

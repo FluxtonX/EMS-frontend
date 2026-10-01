@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard,
   Users,
+  UserCog,
   Building2,
   Briefcase,
   UserCheck,
@@ -22,11 +23,13 @@ import {
   ChevronLeft,
   X,
   ReceiptText,
+  MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useUIStore } from '@/lib/uiStore';
+import { useWorkforceStore } from '@/lib/stores/workforceStore';
 import { useQuery } from '@tanstack/react-query';
-import { fetchEmployees } from '@/lib/api/employees';
+import { fetchUnreadChatCount } from '@/lib/api/chat';
 
 interface NavItem {
   label: string;
@@ -34,12 +37,15 @@ interface NavItem {
   icon: React.ElementType;
   badge?: string | number | null;
   alert?: boolean;
-  dynamicBadge?: boolean; // fetched from API
+  dynamicBadge?: boolean;
+  dynamicChatBadge?: boolean;
 }
 
 const navigationItems: NavItem[] = [
-  { label: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Chat', href: '/chat', icon: MessageSquare, dynamicChatBadge: true },
   { label: 'Employees', href: '/employees', icon: Users, dynamicBadge: true },
+  { label: 'Team Members', href: '/team', icon: UserCog },
   { label: 'Sites', href: '/sites', icon: Building2 },
   { label: 'Job Roles & Rates', href: '/jobs', icon: Briefcase },
   { label: 'Assignments', href: '/assignments', icon: UserCheck },
@@ -60,14 +66,16 @@ export function Sidebar() {
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  // Live employee count from API
-  const { data: empData } = useQuery({
-    queryKey: ['employees-count'],
-    queryFn: () => fetchEmployees({ page: 1, limit: 1 }),
-    staleTime: 60_000,
-    retry: 1,
+  // Synchronous workforce entity count from centralized store
+  const totalEmployees = useWorkforceStore((s) => s.totalEmployees);
+  const employeeCount = totalEmployees;
+
+  // Real-time unread chat badge
+  const { data: unreadChatCount } = useQuery({
+    queryKey: ['chat-unread-count'],
+    queryFn: fetchUnreadChatCount,
+    refetchInterval: 10000,
   });
-  const employeeCount = empData?.total ?? null;
 
   // Close sidebar on outside click on mobile
   useEffect(() => {
@@ -95,7 +103,7 @@ export function Sidebar() {
   const sidebarContent = (
     <aside
       className={cn(
-        'flex flex-col h-full border-r border-[#E5E3F2] bg-white transition-all duration-200 ease-in-out',
+        'flex flex-col h-full border-r border-slate-200/80 bg-white/85 backdrop-blur-xl transition-all duration-200 ease-in-out shadow-[1px_0_10px_rgba(0,0,0,0.02)]',
         isSidebarCollapsed ? 'w-16' : 'w-60'
       )}
     >
@@ -154,21 +162,25 @@ export function Sidebar() {
               ? employeeCount !== null
                 ? String(employeeCount)
                 : null
+              : item.dynamicChatBadge
+              ? unreadChatCount && unreadChatCount > 0
+                ? String(unreadChatCount)
+                : null
               : item.badge != null
               ? String(item.badge)
               : null;
+
+          const isChatBadge = item.dynamicChatBadge && unreadChatCount && unreadChatCount > 0;
 
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'group relative flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 select-none',
+                'group relative flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 select-none',
                 isActive
                   ? [
-                      'bg-[#EDE9FE] text-[#6C5CE7] font-semibold',
-                      // Inset top shadow on active item
-                      'shadow-[inset_0_2px_4px_rgba(108,92,231,0.18)]',
+                      'bg-[#EDE9FE] text-[#6C5CE7] font-semibold shadow-[inset_0_2px_4px_rgba(108,92,231,0.18)] border border-[#D5D0FA]/70',
                     ]
                   : 'text-[#687086] hover:bg-[#F5F3FF] hover:text-[#171A2B]'
               )}
@@ -193,8 +205,10 @@ export function Sidebar() {
               {!isSidebarCollapsed && badge && (
                 <span
                   className={cn(
-                    'px-1.5 py-0.5 rounded-md text-[10px] font-semibold transition-colors',
-                    isActive
+                    'px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition-colors',
+                    isChatBadge
+                      ? 'bg-[#6C5CE7] text-white shadow-xs animate-pulse'
+                      : isActive
                       ? 'bg-[#6C5CE7]/15 text-[#6C5CE7]'
                       : 'bg-[#F5F3FF] text-[#687086] border border-[#E5E3F2]'
                   )}

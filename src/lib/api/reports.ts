@@ -1,3 +1,5 @@
+import { apiCache } from '@/lib/cache/apiCache';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 function getAuthHeaders(): Record<string, string> {
@@ -46,17 +48,25 @@ export interface GenerateReportPayload {
 }
 
 export async function generateReportApi(payload: GenerateReportPayload): Promise<ReportResult> {
-  const res = await fetch(`${API_BASE_URL}/reports/generate`, {
-    method: 'POST',
-    headers: getAuthHeaders(),
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err?.error?.message || 'Failed to generate report');
-  }
-  const json = await res.json();
-  return json.data;
+  const cacheKey = `reports:${JSON.stringify(payload)}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/reports/generate`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error?.message || 'Failed to generate report');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 3 * 60 * 1000 }
+  );
 }
 
 export async function downloadReportCSV(payload: GenerateReportPayload): Promise<void> {

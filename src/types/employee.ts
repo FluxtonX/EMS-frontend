@@ -25,9 +25,21 @@ export interface EmployeeLicence {
   verifiedAt?: string;
 }
 
+export type AccountStatus = 'invited' | 'active' | 'suspended' | 'disabled';
+
+export interface EmployeeCurrentAssignment {
+  id: string;
+  siteName: string;
+  siteCode?: string;
+  role: string;
+  payRate: number;
+  startDate: string;
+}
+
 export interface Employee {
   id: string;
   companyId: string;
+  userId?: string;
   employeeNumber: string;
   firstName: string;
   lastName: string;
@@ -37,11 +49,39 @@ export interface Employee {
   address: EmployeeAddress;
   emergencyContact: EmergencyContact;
   employmentStatus: EmploymentStatus;
+  accountStatus?: AccountStatus;
   employmentStartDate: string;
   employmentEndDate?: string;
   licence?: EmployeeLicence | null;
+  currentAssignment?: EmployeeCurrentAssignment | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface OnboardEmployeePayload {
+  employeeNumber?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  dateOfBirth: string;
+  address: EmployeeAddress;
+  emergencyContact: EmergencyContact;
+  employmentStatus?: EmploymentStatus;
+  employmentStartDate: string;
+  employmentType?: string;
+  positionTitle?: string;
+  initialAssignment?: {
+    siteJobId: string;
+    payRate?: number;
+    startDate?: string;
+  };
+  initialLicence?: {
+    licenceType: string;
+    licenceNumber: string;
+    expiryDate: string;
+  };
+  sendInvitation?: boolean;
 }
 
 export interface PaginatedEmployeesResponse {

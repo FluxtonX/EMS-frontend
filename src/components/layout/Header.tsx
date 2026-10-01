@@ -4,9 +4,11 @@ import React from 'react';
 import Link from 'next/link';
 import { useUIStore } from '@/lib/uiStore';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { Menu, Shield, LogOut, LogIn } from 'lucide-react';
+import { Menu, Shield, LogOut, LogIn, Search, MessageSquare, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { NotificationBell } from './NotificationBell';
+import { useQuery } from '@tanstack/react-query';
+import { fetchUnreadChatCount } from '@/lib/api/chat';
 
 export function Header() {
   const { toggleSidebar } = useUIStore();
@@ -16,61 +18,111 @@ export function Header() {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    year: 'numeric',
   }).format(new Date());
 
   const initials = user
-    ? `${user.firstName[0] || ''}${user.lastName[0] || ''}`.toUpperCase()
+    ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'OP'
     : 'OP';
 
+  // Live unread chat count
+  const { data: unreadChatCount } = useQuery({
+    queryKey: ['chat-unread-count'],
+    queryFn: fetchUnreadChatCount,
+    refetchInterval: 10000,
+  });
+
   return (
-    <header className="sticky top-0 z-30 flex h-14 w-full items-center justify-between border-b border-[#E5E3F2] bg-white px-4 md:px-6">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-xl px-4 md:px-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
+      {/* Left section: mobile hamburger + company / greeting */}
       <div className="flex items-center gap-3">
         <button
           onClick={toggleSidebar}
-          className="p-1.5 rounded text-[#687086] hover:text-[#171A2B] hover:bg-[#F5F3FF] md:hidden"
+          className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 md:hidden transition-colors"
           aria-label="Toggle navigation menu"
         >
           <Menu className="h-5 w-5" />
         </button>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#F5F3FF] text-xs font-semibold text-[#171A2B] border border-[#E5E3F2]">
+        <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F3FF] text-xs font-semibold text-[#171A2B] border border-[#E5E3F2] shadow-2xs">
             <Shield className="h-3.5 w-3.5 text-[#6C5CE7]" />
-            <span>{company?.name || 'Apex Security Services UK'}</span>
+            <span className="font-semibold tracking-tight">{company?.name || 'Apex Security Operations'}</span>
           </div>
-          <span className="hidden sm:inline-block text-xs text-[#9096A9]">•</span>
-          <span className="hidden sm:inline-block text-xs text-[#687086]">{today}</span>
+          <span className="hidden sm:inline-block text-xs font-medium text-[#9096A9]">•</span>
+          <span className="hidden sm:inline-block text-xs font-medium text-[#687086]">{today}</span>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      {/* Middle search bar (Desktop) */}
+      <div className="hidden md:flex items-center max-w-sm w-full mx-4">
+        <div className="relative w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9096A9]" />
+          <input
+            type="text"
+            placeholder="Search employees, shifts, sites..."
+            className="w-full pl-9 pr-12 py-1.5 text-xs bg-slate-100/80 hover:bg-slate-100 focus:bg-white border border-[#E5E3F2] rounded-xl text-[#171A2B] placeholder-[#9096A9] transition-all outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7]"
+          />
+          <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[10px] font-semibold text-[#9096A9] bg-white border border-[#E5E3F2] rounded shadow-2xs pointer-events-none">
+            ⌘K
+          </kbd>
+        </div>
+      </div>
+
+      {/* Right actions: Chat, Notifications, Add Employee, User Profile */}
+      <div className="flex items-center gap-2.5">
+        {/* Quick Chat Shortcut Icon */}
+        <Link
+          href="/chat"
+          className="relative p-2 rounded-xl text-[#687086] hover:text-[#6C5CE7] hover:bg-[#F5F3FF] transition-colors"
+          title="Open Real-Time Chat"
+        >
+          <MessageSquare className="h-4 w-4" />
+          {unreadChatCount && unreadChatCount > 0 ? (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#6C5CE7] px-1 text-[9px] font-bold text-white shadow-xs animate-bounce">
+              {unreadChatCount}
+            </span>
+          ) : null}
+        </Link>
+
+        {/* Notifications */}
         <NotificationBell />
 
+        {/* Add Employee Quick CTA */}
+        <Link href="/employees" className="hidden lg:flex">
+          <Button
+            size="xs"
+            className="rounded-xl bg-[#6C5CE7] hover:bg-[#5A4ACD] text-white shadow-xs font-semibold px-3.5 py-1.5 gap-1.5"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Add Employee</span>
+          </Button>
+        </Link>
+
+        {/* User Profile */}
         {user ? (
-          <div className="flex items-center gap-2 pl-2 border-l border-[#E5E3F2]">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#6C5CE7] text-xs font-medium text-white select-none shadow-xs">
+          <div className="flex items-center gap-2.5 pl-2 border-l border-[#E5E3F2]">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#6C5CE7] text-xs font-bold text-white shadow-xs ring-2 ring-white">
               {initials}
             </div>
-            <div className="hidden lg:block text-left">
+            <div className="hidden xl:block text-left">
               <p className="text-xs font-semibold text-[#171A2B] leading-tight">
                 {user.firstName} {user.lastName}
               </p>
-              <p className="text-[10px] text-[#687086] uppercase tracking-wider">
-                {role || 'Operator'}
+              <p className="text-[10px] text-[#6C5CE7] font-semibold uppercase tracking-wider">
+                {role || 'Director'}
               </p>
             </div>
             <button
               onClick={logout}
               title="Logout"
-              className="p-1 rounded text-[#9096A9] hover:text-[#EF6B73] hover:bg-[#FDF0F1] transition-colors ml-1"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-0.5"
               aria-label="Sign out"
             >
-              <LogOut className="h-3.5 w-3.5" />
+              <LogOut className="h-4 w-4" />
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 pl-2 border-l border-[#E5E3F2]">
+          <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
             <Link href="/login">
               <Button variant="outline" size="xs" leftIcon={<LogIn className="h-3 w-3" />}>
                 Sign In

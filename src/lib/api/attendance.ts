@@ -4,6 +4,7 @@ import {
   ClockOutPayload,
   ReconcilePayload,
 } from '@/types/attendance';
+import { apiCache } from '@/lib/cache/apiCache';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -46,15 +47,23 @@ export async function fetchAttendanceRecordsApi(params: {
   if (params.varianceFlag && params.varianceFlag !== 'all')
     url.searchParams.append('varianceFlag', params.varianceFlag);
 
-  const res = await fetch(url.toString(), {
-    headers: getAuthHeaders(),
-  });
-  if (!res.ok) {
-    const errorJson = await res.json().catch(() => ({}));
-    throw new Error(errorJson?.error?.message || 'Failed to fetch attendance records.');
-  }
-  const json = await res.json();
-  return json.data;
+  const cacheKey = `attendance:records:${url.searchParams.toString()}`;
+
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      const res = await fetch(url.toString(), {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch attendance records.');
+      }
+      const json = await res.json();
+      return json.data;
+    },
+    { ttlMs: 2 * 60 * 1000 }
+  );
 }
 
 export async function clockInApi(payload: ClockInPayload): Promise<AttendanceRecord> {
@@ -67,6 +76,7 @@ export async function clockInApi(payload: ClockInPayload): Promise<AttendanceRec
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to clock in.');
   }
+  apiCache.invalidate('attendance');
   const json = await res.json();
   return json.data;
 }
@@ -80,6 +90,7 @@ export async function startBreakApi(id: string): Promise<AttendanceRecord> {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to start break.');
   }
+  apiCache.invalidate('attendance');
   const json = await res.json();
   return json.data;
 }
@@ -93,6 +104,7 @@ export async function endBreakApi(id: string): Promise<AttendanceRecord> {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to end break.');
   }
+  apiCache.invalidate('attendance');
   const json = await res.json();
   return json.data;
 }
@@ -107,6 +119,7 @@ export async function clockOutApi(id: string, payload: ClockOutPayload): Promise
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to clock out.');
   }
+  apiCache.invalidate('attendance');
   const json = await res.json();
   return json.data;
 }
@@ -124,6 +137,7 @@ export async function reconcileAttendanceApi(
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || 'Failed to reconcile attendance.');
   }
+  apiCache.invalidate('attendance');
   const json = await res.json();
   return json.data;
 }

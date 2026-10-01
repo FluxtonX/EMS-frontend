@@ -1,3 +1,5 @@
+import { apiCache } from '@/lib/cache/apiCache';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 function getAuthHeaders(): Record<string, string> {
@@ -270,51 +272,67 @@ export async function fetchTimesheetsApi(params?: {
   periodStart?: string;
   periodEnd?: string;
 }): Promise<Timesheet[]> {
-  try {
-    const q = new URLSearchParams();
-    if (params?.employeeId) q.append('employeeId', params.employeeId);
-    if (params?.status && params.status !== 'all') q.append('status', params.status);
-    if (params?.periodStart) q.append('periodStart', params.periodStart);
-    if (params?.periodEnd) q.append('periodEnd', params.periodEnd);
+  const q = new URLSearchParams();
+  if (params?.employeeId) q.append('employeeId', params.employeeId);
+  if (params?.status && params.status !== 'all') q.append('status', params.status);
+  if (params?.periodStart) q.append('periodStart', params.periodStart);
+  if (params?.periodEnd) q.append('periodEnd', params.periodEnd);
 
-    const res = await fetch(`${API_BASE_URL}/timesheets?${q.toString()}`, {
-      headers: getAuthHeaders(),
-      cache: 'no-store',
-    });
+  const cacheKey = `timesheets:list:${q.toString()}`;
 
-    if (!res.ok) {
-      throw new Error(`Failed to fetch timesheets: ${res.statusText}`);
-    }
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/timesheets?${q.toString()}`, {
+          headers: getAuthHeaders(),
+          cache: 'no-store',
+        });
 
-    const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      return data;
-    }
-    return FALLBACK_TIMESHEETS;
-  } catch (err) {
-    console.warn('Backend timesheets fetch failed, using fallback data:', err);
-    return FALLBACK_TIMESHEETS;
-  }
+        if (!res.ok) {
+          throw new Error(`Failed to fetch timesheets: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          return data;
+        }
+        return FALLBACK_TIMESHEETS;
+      } catch (err) {
+        console.warn('Backend timesheets fetch failed, using fallback data:', err);
+        return FALLBACK_TIMESHEETS;
+      }
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function fetchTimesheetByIdApi(id: string): Promise<Timesheet> {
-  try {
-    const res = await fetch(`${API_BASE_URL}/timesheets/${id}`, {
-      headers: getAuthHeaders(),
-      cache: 'no-store',
-    });
+  const cacheKey = `timesheets:detail:${id}`;
 
-    if (!res.ok) {
-      throw new Error(`Failed to fetch timesheet: ${res.statusText}`);
-    }
+  return apiCache.withCache(
+    cacheKey,
+    async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/timesheets/${id}`, {
+          headers: getAuthHeaders(),
+          cache: 'no-store',
+        });
 
-    return await res.json();
-  } catch (err) {
-    console.warn(`Backend fetch timesheet ${id} failed, using fallback:`, err);
-    const fallback = FALLBACK_TIMESHEETS.find((ts) => ts.id === id);
-    if (fallback) return fallback;
-    throw err;
-  }
+        if (!res.ok) {
+          throw new Error(`Failed to fetch timesheet: ${res.statusText}`);
+        }
+
+        return await res.json();
+      } catch (err) {
+        console.warn(`Backend fetch timesheet ${id} failed, using fallback:`, err);
+        const fallback = FALLBACK_TIMESHEETS.find((ts) => ts.id === id);
+        if (fallback) return fallback;
+        throw err;
+      }
+    },
+    { ttlMs: 5 * 60 * 1000 }
+  );
 }
 
 export async function generateTimesheetsApi(dto: {
@@ -333,6 +351,7 @@ export async function generateTimesheetsApi(dto: {
     throw new Error(errData.message || `Failed to generate timesheets (${res.status})`);
   }
 
+  apiCache.invalidate('timesheets');
   return await res.json();
 }
 
@@ -358,6 +377,7 @@ export async function adjustTimesheetEntryApi(
     throw new Error(errData.message || `Adjustment failed (${res.status})`);
   }
 
+  apiCache.invalidate('timesheets');
   return await res.json();
 }
 
@@ -379,5 +399,6 @@ export async function reviewTimesheetApi(
     throw new Error(errData.message || `Timesheet review failed (${res.status})`);
   }
 
+  apiCache.invalidate('timesheets');
   return await res.json();
 }

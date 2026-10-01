@@ -204,7 +204,7 @@ export default function PayrollPage() {
           </div>
         }
         breadcrumbs={[
-          { label: 'Workforce Platform', href: '/' },
+          { label: 'Workforce Platform', href: '/dashboard' },
           { label: 'Payroll' },
         ]}
         primaryAction={

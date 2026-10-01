@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Download,
 } from 'lucide-react';
+import { AppShell } from '@/components/layout/AppShell';
 import {
   clientsApi,
   Client,
@@ -170,7 +171,8 @@ export default function ClientsPage() {
   const activeContractsCount = contracts.filter(c => c.status === 'active').length;
 
   return (
-    <div className="space-y-6 pb-16">
+    <AppShell>
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 pb-16">
       {/* Top Banner & Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
         <div>
@@ -1049,6 +1051,7 @@ export default function ClientsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </AppShell>
   );
 }
