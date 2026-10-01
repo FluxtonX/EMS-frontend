@@ -24,7 +24,7 @@ const initialRequests: LeaveRequestItem[] = [
     type: 'Annual Leave',
     dates: '12 Oct – 15 Oct',
     days: 4,
-    avatarBg: 'bg-gradient-to-tr from-blue-600 to-indigo-600',
+    avatarBg: 'bg-gradient-to-tr from-[#6C5CE7] to-[#806FF0]',
   },
   {
     id: '2',
@@ -66,13 +66,13 @@ export function LeaveRequestsQueue() {
       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
           <h3 className="text-base font-bold text-slate-900">Leave Requests</h3>
-          <span className="rounded-full bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 border border-blue-100">
+          <span className="rounded-full bg-[#EDE9FE] px-2.5 py-0.5 text-xs font-bold text-[#6C5CE7] border border-[#D5D0FA]">
             {requests.length} Pending
           </span>
         </div>
         <Link
           href="/leave"
-          className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+          className="text-xs font-semibold text-[#6C5CE7] hover:text-[#5A4ACD] flex items-center gap-1 transition-colors"
         >
           View all <ArrowRight className="h-3 w-3" />
         </Link>

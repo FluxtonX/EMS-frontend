@@ -150,18 +150,18 @@ export default function EmployeeDispatchChatPage() {
                 <div
                   className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-xs shadow-2xs leading-relaxed ${
                     isMe
-                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-xs shadow-blue-500/10'
+                      ? 'bg-gradient-to-r from-[#6C5CE7] to-[#5A4ACD] text-white rounded-tr-xs shadow-[#6C5CE7]/20'
                       : 'bg-white text-slate-800 rounded-tl-xs border border-slate-200/80'
                   }`}
                 >
                   <p className="whitespace-pre-wrap select-text">{msg.text}</p>
                   <div
                     className={`mt-1 flex items-center justify-end gap-1 text-[9px] ${
-                      isMe ? 'text-blue-100' : 'text-slate-400'
+                      isMe ? 'text-purple-100' : 'text-slate-400'
                     }`}
                   >
                     <span>{timeStr}</span>
-                    {isMe && <CheckCheck className="h-3 w-3 text-blue-200 stroke-[2.2]" />}
+                    {isMe && <CheckCheck className="h-3 w-3 text-purple-200 stroke-[2.2]" />}
                   </div>
                 </div>
               </div>
@@ -180,7 +180,7 @@ export default function EmployeeDispatchChatPage() {
           <button
             key={pill}
             onClick={() => setInputText(pill)}
-            className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
+            className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-[#EDE9FE] hover:text-[#6C5CE7] hover:border-[#D5D0FA] text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
           >
             {pill}
           </button>
@@ -198,12 +198,12 @@ export default function EmployeeDispatchChatPage() {
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
-          className="flex-1 px-4 py-2.5 text-xs bg-slate-100/90 border border-slate-200/80 rounded-2xl text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all"
+          className="flex-1 px-4 py-2.5 text-xs bg-slate-100/90 border border-slate-200/80 rounded-2xl text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7] outline-none transition-all"
         />
         <button
           type="submit"
           disabled={!inputText.trim() || sendMutation.isPending}
-          className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all shrink-0"
+          className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-r from-[#6C5CE7] to-[#5A4ACD] text-white shadow-md shadow-[#6C5CE7]/25 hover:from-[#5A4ACD] hover:to-[#4A3BB0] disabled:opacity-50 transition-all shrink-0"
           title="Send message"
         >
           <Send className="h-4 w-4" />

@@ -141,7 +141,7 @@ export default function DashboardPage() {
             trend="4 currently on duty"
             trendDirection="up"
             icon={CalendarCheck}
-            accentColor="blue"
+            accentColor="purple"
             sparklineData={[14, 15, 16, 15, 17, 18, 18]}
           />
 

@@ -109,11 +109,11 @@ export function WorkforceOverviewChart() {
           {/* Legend */}
           <div className="hidden lg:flex items-center gap-3 text-xs text-slate-600 font-medium">
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-blue-600 shadow-xs" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#6C5CE7] shadow-xs" />
               On-Site Security
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-purple-500 shadow-xs" />
+              <span className="h-2.5 w-2.5 rounded-full bg-[#A78BFA] shadow-xs" />
               Standby / Patrol
             </span>
           </div>
@@ -129,7 +129,7 @@ export function WorkforceOverviewChart() {
                 }}
                 className={`rounded-lg px-2.5 py-1 transition-all ${
                   activeRange === range
-                    ? 'bg-white text-blue-600 shadow-2xs font-bold'
+                    ? 'bg-white text-[#6C5CE7] shadow-2xs font-bold'
                     : 'hover:text-slate-900'
                 }`}
               >
@@ -147,16 +147,16 @@ export function WorkforceOverviewChart() {
           className="w-full h-56 select-none overflow-visible"
         >
           <defs>
-            {/* Primary blue gradient */}
+            {/* Primary purple gradient */}
             <linearGradient id="onSiteAreaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.32" />
-              <stop offset="100%" stopColor="#3B82F6" stopOpacity="0.0" />
+              <stop offset="0%" stopColor="#6C5CE7" stopOpacity="0.32" />
+              <stop offset="100%" stopColor="#6C5CE7" stopOpacity="0.0" />
             </linearGradient>
 
-            {/* Standby purple gradient */}
+            {/* Standby lavender gradient */}
             <linearGradient id="standbyAreaGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8B5CF6" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="#8B5CF6" stopOpacity="0.0" />
+              <stop offset="0%" stopColor="#A78BFA" stopOpacity="0.22" />
+              <stop offset="100%" stopColor="#A78BFA" stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
@@ -212,14 +212,14 @@ export function WorkforceOverviewChart() {
           <path
             d={standbyLinePath}
             fill="none"
-            stroke="#8B5CF6"
+            stroke="#A78BFA"
             strokeWidth="2.4"
             strokeLinecap="round"
           />
           <path
             d={onSiteLinePath}
             fill="none"
-            stroke="#3B82F6"
+            stroke="#6C5CE7"
             strokeWidth="2.8"
             strokeLinecap="round"
           />
@@ -232,7 +232,7 @@ export function WorkforceOverviewChart() {
                 y1={paddingY}
                 x2={activeCoord.x}
                 y2={svgHeight - paddingY}
-                stroke="#3B82F6"
+                stroke="#6C5CE7"
                 strokeWidth="1.5"
                 strokeDasharray="3 3"
               />
@@ -240,7 +240,7 @@ export function WorkforceOverviewChart() {
                 cx={activeCoord.x}
                 cy={activeCoord.y}
                 r="5"
-                fill="#3B82F6"
+                fill="#6C5CE7"
                 stroke="#ffffff"
                 strokeWidth="2"
                 className="shadow-sm"
@@ -249,7 +249,7 @@ export function WorkforceOverviewChart() {
                 cx={standbyPoints[hoverIndex].x}
                 cy={standbyPoints[hoverIndex].y}
                 r="4.5"
-                fill="#8B5CF6"
+                fill="#A78BFA"
                 stroke="#ffffff"
                 strokeWidth="2"
               />
@@ -266,7 +266,7 @@ export function WorkforceOverviewChart() {
                   y={svgHeight - 6}
                   textAnchor="middle"
                   className={`text-[10px] font-medium transition-colors ${
-                    hoverIndex === i ? 'fill-blue-600 font-bold' : 'fill-slate-400'
+                    hoverIndex === i ? 'fill-[#6C5CE7] font-bold' : 'fill-slate-400'
                   }`}
                 >
                   {d.month}
@@ -299,8 +299,8 @@ export function WorkforceOverviewChart() {
             <p className="text-[11px] font-bold text-slate-200">{activePoint.month} Snapshot</p>
             <div className="mt-1 space-y-0.5 text-[10px]">
               <div className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-1 text-blue-300">
-                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400" /> On-Site:
+                <span className="flex items-center gap-1 text-[#D5D0FA]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#6C5CE7]" /> On-Site:
                 </span>
                 <span className="font-bold">{activePoint.onSite} officers</span>
               </div>

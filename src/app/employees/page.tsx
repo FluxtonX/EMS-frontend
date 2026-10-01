@@ -799,7 +799,7 @@ export default function EmployeesPage() {
                             On leave
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-blue-700 border border-blue-100">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[#EDE9FE] px-2 py-0.5 text-[10px] font-bold text-[#6C5CE7] border border-[#D5D0FA]">
                             {emp.employmentStatus}
                           </span>
                         )}

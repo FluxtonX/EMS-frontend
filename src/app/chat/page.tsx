@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '@/components/layout/AppShell';
@@ -53,7 +53,7 @@ const getInitials = (fullName: string) => {
   return fullName.substring(0, 2).toUpperCase() || 'EM';
 };
 
-export default function CompanyChatPage() {
+function CompanyChatContent() {
   const { session } = useAuth();
   const searchParams = useSearchParams();
   const targetEmployeeId = searchParams.get('employeeId');
@@ -160,7 +160,7 @@ export default function CompanyChatPage() {
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
                 Workforce Communications Hub
               </h1>
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EDE9FE] text-[#6C5CE7]">
                 <Sparkles className="h-3 w-3" />
               </span>
             </div>
@@ -189,7 +189,7 @@ export default function CompanyChatPage() {
                   placeholder="Filter officers, sites..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100/90 border border-slate-200/70 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100/90 border border-slate-200/70 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7] outline-none transition-all"
                 />
               </div>
             </div>
@@ -215,8 +215,8 @@ export default function CompanyChatPage() {
                       onClick={() => setSelectedConversationId(conv.id)}
                       className={`w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-start gap-3 select-none ${
                         isSelected
-                          ? 'bg-blue-50/90 border border-blue-100 shadow-xs'
-                          : 'hover:bg-slate-100/60'
+                          ? 'bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA] shadow-[inset_0_2px_4px_rgba(108,92,231,0.14)] font-semibold'
+                          : 'hover:bg-[#F5F3FF]/70'
                       }`}
                     >
                       {/* Avatar */}
@@ -252,7 +252,7 @@ export default function CompanyChatPage() {
                             {conv.last_message_preview || 'Tap to chat with officer'}
                           </p>
                           {conv.unread_count && conv.unread_count > 0 ? (
-                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] font-bold text-white shadow-xs">
+                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#6C5CE7] px-1 text-[9px] font-bold text-white shadow-xs">
                               {conv.unread_count}
                             </span>
                           ) : null}
@@ -304,7 +304,7 @@ export default function CompanyChatPage() {
                     {activeConversation.employee_phone && (
                       <a
                         href={`tel:${activeConversation.employee_phone}`}
-                        className="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        className="p-2 rounded-xl text-slate-500 hover:text-[#6C5CE7] hover:bg-[#F5F3FF] transition-colors"
                         title="Call officer phone"
                       >
                         <Phone className="h-4 w-4" />
@@ -313,7 +313,7 @@ export default function CompanyChatPage() {
                     {activeConversation.employee_email && (
                       <a
                         href={`mailto:${activeConversation.employee_email}`}
-                        className="p-2 rounded-xl text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                        className="p-2 rounded-xl text-slate-500 hover:text-[#6C5CE7] hover:bg-[#F5F3FF] transition-colors"
                         title="Send formal email"
                       >
                         <Mail className="h-4 w-4" />
@@ -349,19 +349,19 @@ export default function CompanyChatPage() {
                           <div
                             className={`max-w-[78%] sm:max-w-[68%] rounded-2xl px-4 py-2.5 text-xs shadow-2xs leading-relaxed ${
                               isCompany
-                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-xs shadow-blue-500/10'
+                                ? 'bg-gradient-to-r from-[#6C5CE7] to-[#5A4ACD] text-white rounded-tr-xs shadow-[#6C5CE7]/20'
                                 : 'bg-white text-slate-800 rounded-tl-xs border border-slate-200/80'
                             }`}
                           >
                             <p className="whitespace-pre-wrap select-text">{msg.text}</p>
                             <div
                               className={`mt-1 flex items-center justify-end gap-1 text-[9px] ${
-                                isCompany ? 'text-blue-100' : 'text-slate-400'
+                                isCompany ? 'text-purple-100' : 'text-slate-400'
                               }`}
                             >
                               <span>{timeStr}</span>
                               {isCompany && (
-                                <CheckCheck className="h-3 w-3 text-blue-200 stroke-[2.2]" />
+                                <CheckCheck className="h-3 w-3 text-purple-200 stroke-[2.2]" />
                               )}
                             </div>
                           </div>
@@ -381,7 +381,7 @@ export default function CompanyChatPage() {
                     <button
                       key={reply}
                       onClick={() => setInputText(reply)}
-                      className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
+                      className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-[#EDE9FE] hover:text-[#6C5CE7] hover:border-[#D5D0FA] text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
                     >
                       {reply}
                     </button>
@@ -399,12 +399,12 @@ export default function CompanyChatPage() {
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    className="flex-1 px-4 py-2.5 text-xs bg-slate-100/90 border border-slate-200/80 rounded-2xl text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 outline-none transition-all"
+                    className="flex-1 px-4 py-2.5 text-xs bg-slate-100/90 border border-slate-200/80 rounded-2xl text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7] outline-none transition-all"
                   />
                   <button
                     type="submit"
                     disabled={!inputText.trim() || sendMutation.isPending}
-                    className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all shrink-0"
+                    className="flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-r from-[#6C5CE7] to-[#5A4ACD] text-white shadow-md shadow-[#6C5CE7]/25 hover:from-[#5A4ACD] hover:to-[#4A3BB0] disabled:opacity-50 transition-all shrink-0"
                     title="Send message"
                   >
                     <Send className="h-4 w-4" />
@@ -424,5 +424,22 @@ export default function CompanyChatPage() {
         </div>
       </div>
     </AppShell>
+  );
+}
+
+export default function CompanyChatPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F5F3FF]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 rounded-full border-2 border-[#6C5CE7] border-t-transparent animate-spin" />
+            <p className="text-xs text-[#687086] font-medium">Opening secure comms…</p>
+          </div>
+        </div>
+      }
+    >
+      <CompanyChatContent />
+    </Suspense>
   );
 }

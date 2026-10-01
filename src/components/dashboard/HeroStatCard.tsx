@@ -36,14 +36,14 @@ export function HeroStatCard({
   const areaD = `M 0,${height} L ${points.join(' L ')} L ${width},${height} Z`;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#3B82F6] via-[#2563EB] to-[#1D4ED8] p-5 text-white shadow-[0_12px_32px_-8px_rgba(37,99,235,0.45)] ring-1 ring-white/25 transition-all duration-300 hover:shadow-[0_16px_38px_-6px_rgba(37,99,235,0.55)] hover:-translate-y-0.5">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#7C6CEE] via-[#6C5CE7] to-[#4D3CB5] p-5 text-white shadow-[0_12px_32px_-8px_rgba(108,92,231,0.45)] ring-1 ring-white/25 transition-all duration-300 hover:shadow-[0_16px_38px_-6px_rgba(108,92,231,0.55)] hover:-translate-y-0.5">
       {/* Glossy radial highlight overlay */}
       <div className="pointer-events-none absolute -right-12 -top-12 h-40 w-40 rounded-full bg-white/15 blur-2xl" />
-      <div className="pointer-events-none absolute -left-12 -bottom-12 h-36 w-36 rounded-full bg-blue-300/10 blur-xl" />
+      <div className="pointer-events-none absolute -left-12 -bottom-12 h-36 w-36 rounded-full bg-purple-300/10 blur-xl" />
 
       {/* Header */}
       <div className="relative flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-blue-100">
+        <span className="text-xs font-semibold uppercase tracking-wider text-[#EDE9FE]">
           {title}
         </span>
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md shadow-xs ring-1 ring-white/30">
@@ -56,7 +56,7 @@ export function HeroStatCard({
         <div className="text-3xl font-extrabold tracking-tight text-white drop-shadow-xs">
           {value}
         </div>
-        <p className="mt-0.5 text-xs text-blue-100/90">{subtitle}</p>
+        <p className="mt-0.5 text-xs text-[#EDE9FE]/90">{subtitle}</p>
       </div>
 
       {/* Trend + Sparkline Row */}

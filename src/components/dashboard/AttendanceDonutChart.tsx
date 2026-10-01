@@ -22,7 +22,7 @@ export function AttendanceDonutChart({
   totalOfficers = 38,
   breakdown = [
     { label: 'On Duty & Active', count: 29, percentage: 76, color: '#10B981', dotClass: 'bg-emerald-500' },
-    { label: 'In Transit / En Route', count: 5, percentage: 14, color: '#3B82F6', dotClass: 'bg-blue-500' },
+    { label: 'In Transit / En Route', count: 5, percentage: 14, color: '#6C5CE7', dotClass: 'bg-[#6C5CE7]' },
     { label: 'Approved Leave', count: 3, percentage: 7, color: '#F59E0B', dotClass: 'bg-amber-500' },
     { label: 'Unexcused / Absent', count: 1, percentage: 3, color: '#EF4444', dotClass: 'bg-rose-500' },
   ],
@@ -44,7 +44,7 @@ export function AttendanceDonutChart({
           <h3 className="text-base font-bold text-slate-900">Attendance Today</h3>
           <p className="text-xs text-slate-500 mt-0.5">Real-time GPS clock-ins and post status</p>
         </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shadow-2xs">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#F5F3FF] text-[#6C5CE7] border border-[#EDE9FE] shadow-2xs">
           <Clock className="h-4 w-4" />
         </div>
       </div>

@@ -10,7 +10,7 @@ interface GlassStatCardProps {
   trend: string;
   trendDirection?: 'up' | 'down' | 'neutral';
   icon: LucideIcon;
-  accentColor?: 'emerald' | 'blue' | 'indigo' | 'amber';
+  accentColor?: 'emerald' | 'blue' | 'indigo' | 'amber' | 'purple';
   sparklineData?: number[];
 }
 
@@ -21,10 +21,16 @@ export function GlassStatCard({
   trend,
   trendDirection = 'up',
   icon: Icon,
-  accentColor = 'blue',
+  accentColor = 'purple',
   sparklineData = [12, 14, 15, 13, 16, 17, 18],
 }: GlassStatCardProps) {
   const colorMap = {
+    purple: {
+      iconBg: 'bg-[#F5F3FF] text-[#6C5CE7] border border-[#EDE9FE]',
+      trendBg: 'bg-[#F5F3FF] text-[#6C5CE7] border border-[#EDE9FE]',
+      stroke: '#6C5CE7',
+      gradId: 'purpleSparkGrad',
+    },
     emerald: {
       iconBg: 'bg-emerald-50 text-emerald-600 border border-emerald-100',
       trendBg: 'bg-emerald-50 text-emerald-700 border border-emerald-100',
@@ -32,9 +38,9 @@ export function GlassStatCard({
       gradId: 'emeraldSparkGrad',
     },
     blue: {
-      iconBg: 'bg-blue-50 text-blue-600 border border-blue-100',
-      trendBg: 'bg-blue-50 text-blue-700 border border-blue-100',
-      stroke: '#3B82F6',
+      iconBg: 'bg-[#F5F3FF] text-[#6C5CE7] border border-[#EDE9FE]',
+      trendBg: 'bg-[#F5F3FF] text-[#6C5CE7] border border-[#EDE9FE]',
+      stroke: '#6C5CE7',
       gradId: 'blueSparkGrad',
     },
     indigo: {

@@ -28,7 +28,7 @@ export function OperationsPipeline() {
         </div>
         <Link
           href="/shifts"
-          className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors"
+          className="text-xs font-semibold text-[#6C5CE7] hover:text-[#5A4ACD] flex items-center gap-1 transition-colors"
         >
           Rota <ArrowRight className="h-3 w-3" />
         </Link>
@@ -51,10 +51,10 @@ export function OperationsPipeline() {
         <div>
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="font-semibold text-slate-700">Afternoon Shift (14:00 – 22:00)</span>
-            <span className="font-bold text-blue-600">85% Active Deployment</span>
+            <span className="font-bold text-[#6C5CE7]">85% Active Deployment</span>
           </div>
           <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full rounded-full bg-blue-600 w-[85%] transition-all duration-500" />
+            <div className="h-full rounded-full bg-[#6C5CE7] w-[85%] transition-all duration-500" />
           </div>
         </div>
 
@@ -62,10 +62,10 @@ export function OperationsPipeline() {
         <div>
           <div className="flex items-center justify-between text-xs mb-1">
             <span className="font-semibold text-slate-700">Night Patrol &amp; Static (22:00 – 06:00)</span>
-            <span className="font-bold text-indigo-600">Roster Locked · 100% Ready</span>
+            <span className="font-bold text-[#806FF0]">Roster Locked · 100% Ready</span>
           </div>
           <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full rounded-full bg-indigo-500 w-[45%] transition-all duration-500" />
+            <div className="h-full rounded-full bg-[#806FF0] w-[45%] transition-all duration-500" />
           </div>
         </div>
       </div>
@@ -82,7 +82,7 @@ export function OperationsPipeline() {
               className="flex items-center justify-between rounded-xl bg-slate-50/70 px-3 py-2 border border-slate-100/80"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <ShieldCheck className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                <ShieldCheck className="h-3.5 w-3.5 text-[#6C5CE7] shrink-0" />
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-slate-800 truncate">{site.name}</p>
                   <p className="text-[10px] text-slate-400 flex items-center gap-1">
