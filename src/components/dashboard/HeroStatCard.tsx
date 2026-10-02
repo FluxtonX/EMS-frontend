@@ -35,6 +35,11 @@ export function HeroStatCard({
   const pathD = `M ${points.join(' L ')}`;
   const areaD = `M 0,${height} L ${points.join(' L ')} L ${width},${height} Z`;
 
+  // Parse trend string into badge value (e.g. "+12.5%") and context ("vs last month")
+  const trendParts = trend.trim().split(' ');
+  const primaryTrend = trendParts[0];
+  const contextTrend = trendParts.slice(1).join(' ');
+
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#7C6CEE] via-[#6C5CE7] to-[#4D3CB5] p-5 text-white shadow-[0_12px_32px_-8px_rgba(108,92,231,0.45)] ring-1 ring-white/25 transition-all duration-300 hover:shadow-[0_16px_38px_-6px_rgba(108,92,231,0.55)] hover:-translate-y-0.5">
       {/* Glossy radial highlight overlay */}
@@ -60,10 +65,17 @@ export function HeroStatCard({
       </div>
 
       {/* Trend + Sparkline Row */}
-      <div className="relative mt-4 flex items-end justify-between pt-2">
-        <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-md ring-1 ring-white/30 shadow-2xs">
-          <TrendingUp className="h-3 w-3 text-emerald-300" />
-          <span>{trend}</span>
+      <div className="relative mt-4 flex items-end justify-between pt-2 gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 min-w-0 pr-1">
+          <div className="inline-flex items-center gap-1 rounded-lg bg-white/20 px-2 py-0.5 text-[11px] font-bold text-white backdrop-blur-md ring-1 ring-white/30 shadow-2xs shrink-0 whitespace-nowrap">
+            <TrendingUp className="h-3 w-3 text-emerald-300" />
+            <span>{primaryTrend}</span>
+          </div>
+          {contextTrend && (
+            <span className="text-[10px] text-[#EDE9FE]/90 font-medium whitespace-nowrap truncate">
+              {contextTrend}
+            </span>
+          )}
         </div>
 
         {/* Crisp White Sparkline */}

@@ -179,11 +179,17 @@ export function Sidebar() {
               className={cn(
                 'group relative flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 select-none',
                 isActive
-                  ? [
-                      'bg-[#EDE9FE] text-[#6C5CE7] font-semibold shadow-[inset_0_2px_4px_rgba(108,92,231,0.20)] border border-[#D5D0FA]/70',
-                    ]
+                  ? 'sidebar-active-tab bg-[#EDE9FE] text-[#6C5CE7] font-semibold border border-[#D5D0FA]'
                   : 'text-[#687086] hover:bg-[#F5F3FF] hover:text-[#171A2B]'
               )}
+              style={
+                isActive
+                  ? {
+                      boxShadow:
+                        'inset 0 3px 6px rgba(108, 92, 231, 0.28), inset 0 1px 2px rgba(90, 74, 205, 0.38)',
+                    }
+                  : undefined
+              }
               title={isSidebarCollapsed ? item.label : undefined}
             >
               {/* Active left accent bar */}

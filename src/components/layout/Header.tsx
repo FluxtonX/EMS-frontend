@@ -11,8 +11,13 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchUnreadChatCount } from '@/lib/api/chat';
 
 export function Header() {
+  const [mounted, setMounted] = React.useState(false);
   const { toggleSidebar } = useUIStore();
   const { user, company, role, logout } = useAuth();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const today = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
@@ -46,10 +51,10 @@ export function Header() {
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#F5F3FF] text-xs font-semibold text-[#171A2B] border border-[#E5E3F2] shadow-2xs">
             <Shield className="h-3.5 w-3.5 text-[#6C5CE7]" />
-            <span className="font-semibold tracking-tight">{company?.name || 'Apex Security Operations'}</span>
+            <span className="font-semibold tracking-tight">{mounted && company?.name ? company.name : 'Apex Security Operations'}</span>
           </div>
           <span className="hidden sm:inline-block text-xs font-medium text-[#9096A9]">•</span>
-          <span className="hidden sm:inline-block text-xs font-medium text-[#687086]">{today}</span>
+          <span suppressHydrationWarning className="hidden sm:inline-block text-xs font-medium text-[#687086]">{today}</span>
         </div>
       </div>
 
@@ -87,19 +92,8 @@ export function Header() {
         {/* Notifications */}
         <NotificationBell />
 
-        {/* Add Employee Quick CTA */}
-        <Link href="/employees" className="hidden lg:flex">
-          <Button
-            size="xs"
-            className="rounded-xl bg-[#6C5CE7] hover:bg-[#5A4ACD] text-white shadow-xs font-semibold px-3.5 py-1.5 gap-1.5"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Add Employee</span>
-          </Button>
-        </Link>
-
         {/* User Profile */}
-        {user ? (
+        {mounted && user ? (
           <div className="flex items-center gap-2.5 pl-2 border-l border-[#E5E3F2]">
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#6C5CE7] text-xs font-bold text-white shadow-xs ring-2 ring-white">
               {initials}
@@ -121,7 +115,7 @@ export function Header() {
               <LogOut className="h-4 w-4" />
             </button>
           </div>
-        ) : (
+        ) : mounted ? (
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
             <Link href="/login">
               <Button variant="outline" size="xs" leftIcon={<LogIn className="h-3 w-3" />}>
@@ -129,6 +123,8 @@ export function Header() {
               </Button>
             </Link>
           </div>
+        ) : (
+          <div className="h-8 w-20 rounded-lg bg-slate-100/60" />
         )}
       </div>
     </header>

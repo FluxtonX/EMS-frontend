@@ -19,6 +19,11 @@ import {
   Search,
   Filter,
   MoreVertical,
+  Eye,
+  EyeOff,
+  Copy,
+  Check,
+  KeyRound,
 } from 'lucide-react';
 import { toast } from '@/lib/toastStore';
 
@@ -45,6 +50,7 @@ interface PendingInvitation {
 }
 
 export default function TeamPage() {
+  const [mounted, setMounted] = useState(false);
   const { session, role: userRole } = useAuth();
   const token = session?.accessToken;
 
@@ -54,28 +60,65 @@ export default function TeamPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Invite Modal
+  // Modal & Mode State
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'manual' | 'invite'>('manual');
+
+  // Email Invite Form
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<'Manager' | 'Supervisor'>('Manager');
   const [isInviting, setIsInviting] = useState(false);
+
+  // Manual Add Form State
+  const [manualFirstName, setManualFirstName] = useState('');
+  const [manualLastName, setManualLastName] = useState('');
+  const [manualEmail, setManualEmail] = useState('');
+  const [manualPhone, setManualPhone] = useState('');
+  const [manualRole, setManualRole] = useState<'Manager' | 'Supervisor'>('Manager');
+  const [manualPassword, setManualPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isCreatingManual, setIsCreatingManual] = useState(false);
+
+  // Success Credential Handover
+  const [createdCredentials, setCreatedCredentials] = useState<{
+    name: string;
+    email: string;
+    role: string;
+    password: string;
+  } | null>(null);
+  const [hasCopiedCredentials, setHasCopiedCredentials] = useState(false);
+  const [hasCopiedPassword, setHasCopiedPassword] = useState(false);
 
   // Status Action Loading
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   const isOwner = (userRole || '').toUpperCase() === 'OWNER' || (userRole || '').toUpperCase() === 'ADMIN';
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const fetchTeamData = async () => {
-    if (!token) return;
+    if (!token) {
+      setIsLoading(false);
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE_URL}/team`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) throw new Error('Failed to load team members');
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Your login session has expired. Please log out and sign in again.');
+        }
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error?.message || errJson.message || 'Failed to load team members');
+      }
       const data = await res.json();
-      setMembers(data.members || []);
-      setPendingInvitations(data.pendingInvitations || []);
+      const payload = data.data !== undefined ? data.data : data;
+      setMembers(payload.members || []);
+      setPendingInvitations(payload.pendingInvitations || []);
     } catch (err: any) {
       toast.error(err.message || 'Error fetching team data');
     } finally {
@@ -108,8 +151,16 @@ export default function TeamPage() {
       });
 
       if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Your login session has expired. Please log out and sign in again.');
+        }
         const err = await res.json();
-        throw new Error(err.message || 'Failed to dispatch invitation');
+        const errorMsg =
+          (Array.isArray(err.error?.details) ? err.error.details.join(', ') : null) ||
+          err.error?.message ||
+          err.message ||
+          'Failed to dispatch invitation';
+        throw new Error(errorMsg);
       }
 
       toast.success(`Invitation dispatched to ${inviteEmail} via Brevo.`);
@@ -122,6 +173,105 @@ export default function TeamPage() {
       toast.error(err.message || 'Invitation failed');
     } finally {
       setIsInviting(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setIsInviteOpen(false);
+    setCreatedCredentials(null);
+    setShowPassword(false);
+    setHasCopiedCredentials(false);
+    setHasCopiedPassword(false);
+  };
+
+  const handleGeneratePassword = () => {
+    const uppercase = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const lowercase = 'abcdefghijkmnpqrstuvwxyz';
+    const digits = '23456789';
+    const symbols = '!@#$%&*';
+    const all = uppercase + lowercase + digits + symbols;
+    let pwd = '';
+    pwd += uppercase[Math.floor(Math.random() * uppercase.length)];
+    pwd += lowercase[Math.floor(Math.random() * lowercase.length)];
+    pwd += digits[Math.floor(Math.random() * digits.length)];
+    pwd += symbols[Math.floor(Math.random() * symbols.length)];
+    for (let i = 4; i < 12; i++) {
+      pwd += all[Math.floor(Math.random() * all.length)];
+    }
+    const shuffled = pwd.split('').sort(() => 0.5 - Math.random()).join('');
+    setManualPassword(shuffled);
+    setShowPassword(true);
+    toast.success('Generated a secure password!');
+  };
+
+  const handleCreateManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token) return;
+
+    if (!manualFirstName.trim() || !manualLastName.trim() || !manualEmail.trim()) {
+      toast.error('Please enter first name, last name, and work email.');
+      return;
+    }
+
+    if (manualPassword.length < 8) {
+      toast.error('Password must be at least 8 characters long.');
+      return;
+    }
+
+    setIsCreatingManual(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}/team/manual`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: manualFirstName.trim(),
+          lastName: manualLastName.trim(),
+          email: manualEmail.trim(),
+          phone: manualPhone.trim() || undefined,
+          role: manualRole,
+          password: manualPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 401) {
+          throw new Error('Your login session has expired. Please log out and sign in again.');
+        }
+        const errorMsg =
+          (Array.isArray(data.error?.details) ? data.error.details.join(', ') : null) ||
+          data.error?.message ||
+          data.message ||
+          'Failed to create team member';
+        throw new Error(errorMsg);
+      }
+
+      toast.success(`Team member ${manualFirstName} ${manualLastName} created successfully!`);
+
+      // Store created credentials for direct handover view
+      setCreatedCredentials({
+        name: `${manualFirstName.trim()} ${manualLastName.trim()}`,
+        email: manualEmail.trim().toLowerCase(),
+        role: manualRole === 'Supervisor' ? 'Operator' : manualRole,
+        password: manualPassword,
+      });
+
+      // Clear input fields
+      setManualFirstName('');
+      setManualLastName('');
+      setManualEmail('');
+      setManualPhone('');
+      setManualPassword('');
+      setManualRole('Manager');
+
+      fetchTeamData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create team member');
+    } finally {
+      setIsCreatingManual(false);
     }
   };
 
@@ -213,14 +363,18 @@ export default function TeamPage() {
         title="Team Members"
         subtitle="Manage internal management users, role permissions, and access invitations."
         primaryAction={
-          isOwner ? (
+          mounted && isOwner ? (
             <Button
               variant="primary"
               size="sm"
               leftIcon={<UserPlus className="h-4 w-4" />}
-              onClick={() => setIsInviteOpen(true)}
+              onClick={() => {
+                setModalMode('manual');
+                setCreatedCredentials(null);
+                setIsInviteOpen(true);
+              }}
             >
-              Invite Team Member
+              Add Team Member
             </Button>
           ) : undefined
         }
@@ -319,7 +473,7 @@ export default function TeamPage() {
                       <th className="py-3 px-4">Role</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Joined Date</th>
-                      {isOwner && <th className="py-3 px-4 text-right">Actions</th>}
+                      {mounted && isOwner && <th className="py-3 px-4 text-right">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E3F2]">
@@ -355,14 +509,14 @@ export default function TeamPage() {
                               {member.status === 'active' ? 'Active' : 'Suspended'}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-[#687086]">
+                          <td suppressHydrationWarning className="py-3 px-4 text-[#687086]">
                             {new Date(member.joinedAt).toLocaleDateString('en-GB', {
                               day: '2-digit',
                               month: 'short',
                               year: 'numeric',
                             })}
                           </td>
-                          {isOwner && (
+                          {mounted && isOwner && (
                             <td className="py-3 px-4 text-right">
                               {!isMemberOwner ? (
                                 <Button
@@ -404,7 +558,7 @@ export default function TeamPage() {
                       <th className="py-3 px-4">Designated Role</th>
                       <th className="py-3 px-4">Expires In</th>
                       <th className="py-3 px-4">Sent Date</th>
-                      {isOwner && <th className="py-3 px-4 text-right">Actions</th>}
+                      {mounted && isOwner && <th className="py-3 px-4 text-right">Actions</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E3F2]">
@@ -421,17 +575,17 @@ export default function TeamPage() {
                               {inv.role === 'Supervisor' ? 'Operator' : inv.role}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-amber-600 font-medium">
+                          <td suppressHydrationWarning className="py-3 px-4 text-amber-600 font-medium">
                             {hoursLeft > 0 ? `${hoursLeft} hours remaining` : 'Expired'}
                           </td>
-                          <td className="py-3 px-4 text-[#687086]">
+                          <td suppressHydrationWarning className="py-3 px-4 text-[#687086]">
                             {new Date(inv.createdAt).toLocaleDateString('en-GB', {
                               day: '2-digit',
                               month: 'short',
                               year: 'numeric',
                             })}
                           </td>
-                          {isOwner && (
+                          {mounted && isOwner && (
                             <td className="py-3 px-4 text-right space-x-2">
                               <Button
                                 variant="outline"
@@ -464,62 +618,325 @@ export default function TeamPage() {
           )}
         </div>
 
-        {/* Invite Team Member Modal */}
+        {/* Add / Invite Team Member Modal */}
         <Modal
           isOpen={isInviteOpen}
-          onClose={() => setIsInviteOpen(false)}
-          title="Invite Internal Team Member"
+          onClose={handleCloseModal}
+          maxWidth="lg"
+          title={
+            createdCredentials
+              ? 'Account Credentials Ready'
+              : modalMode === 'manual'
+              ? 'Add Internal Team Member'
+              : 'Invite Team Member via Email'
+          }
         >
-          <form onSubmit={handleSendInvite} className="space-y-4">
-            <p className="text-xs text-[#687086]">
-              A cryptographic single-use invitation link will be dispatched via Brevo. The team member will
-              create their own password upon opening the link.
-            </p>
+          {createdCredentials ? (
+            /* Direct Credential Handover Screen */
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-3.5 bg-[#FAF9FF] border border-[#D5D0FA] rounded-xl">
+                <div className="h-10 w-10 rounded-full bg-[#EDE9FE] flex items-center justify-center text-[#6C5CE7] shrink-0">
+                  <CheckCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-[#171A2B]">Account Ready for Handover</h4>
+                  <p className="text-xs text-[#687086]">
+                    This account is activated immediately. Securely provide these login credentials to the team member.
+                  </p>
+                </div>
+              </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-[#687086]">Work Email Address</label>
-              <input
-                type="email"
-                required
-                placeholder="colleague@company.co.uk"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
-              />
-            </div>
+              <div className="bg-[#FAF9FF] border border-[#E5E3F2] rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-[#E5E3F2]">
+                  <span className="text-xs font-medium text-[#687086]">Member Name</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-[#171A2B]">{createdCredentials.name}</span>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium ${
+                        createdCredentials.role === 'Manager'
+                          ? 'bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA]'
+                          : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      }`}
+                    >
+                      {createdCredentials.role}
+                    </span>
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-[#687086]">Full Name (Optional)</label>
-              <input
-                type="text"
-                placeholder="e.g. Jane Smith"
-                value={inviteName}
-                onChange={(e) => setInviteName(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
-              />
-            </div>
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-xs font-medium text-[#687086]">Login Email</span>
+                  <div className="flex items-center gap-1.5">
+                    <code className="text-xs font-mono font-medium text-[#171A2B] bg-white px-2 py-1 rounded border border-[#E5E3F2]">
+                      {createdCredentials.email}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(createdCredentials.email);
+                        toast.success('Email copied to clipboard');
+                      }}
+                      className="p-1 text-[#687086] hover:text-[#6C5CE7] transition-colors rounded"
+                      title="Copy Email"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-[#687086]">Designated Role</label>
-              <select
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as any)}
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7] bg-white"
-              >
-                <option value="Manager">Manager (Full workforce & sites configuration)</option>
-                <option value="Supervisor">Operator (Day-to-day rostering & attendance)</option>
-              </select>
-            </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-xs font-medium text-[#687086]">Assigned Password</span>
+                  <div className="flex items-center gap-1.5">
+                    <code className="text-xs font-mono font-semibold text-[#6C5CE7] bg-white px-2 py-1 rounded border border-[#D5D0FA]">
+                      {createdCredentials.password}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(createdCredentials.password);
+                        setHasCopiedPassword(true);
+                        toast.success('Password copied to clipboard');
+                        setTimeout(() => setHasCopiedPassword(false), 2000);
+                      }}
+                      className="p-1 text-[#687086] hover:text-[#6C5CE7] transition-colors rounded"
+                      title="Copy Password"
+                    >
+                      {hasCopiedPassword ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
 
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#E5E3F2]">
-              <Button type="button" variant="outline" size="sm" onClick={() => setIsInviteOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" variant="primary" size="sm" isLoading={isInviting}>
-                Send Brevo Invitation
-              </Button>
+              <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#E5E3F2]">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  leftIcon={
+                    hasCopiedCredentials ? (
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )
+                  }
+                  onClick={() => {
+                    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                    const creds = `Apex Workforce Team Access:\nName: ${createdCredentials.name}\nRole: ${createdCredentials.role}\nEmail: ${createdCredentials.email}\nPassword: ${createdCredentials.password}\nLogin URL: ${origin}/login`;
+                    navigator.clipboard.writeText(creds);
+                    setHasCopiedCredentials(true);
+                    toast.success('All credentials copied to clipboard!');
+                    setTimeout(() => setHasCopiedCredentials(false), 2500);
+                  }}
+                >
+                  {hasCopiedCredentials ? 'Credentials Copied!' : 'Copy All Credentials'}
+                </Button>
+
+                <Button type="button" variant="primary" size="sm" onClick={handleCloseModal}>
+                  Done
+                </Button>
+              </div>
             </div>
-          </form>
+          ) : (
+            <div>
+              {/* Segmented Mode Switcher */}
+              <div className="flex p-1 bg-[#F5F3FF] border border-[#D5D0FA] rounded-xl mb-4">
+                <button
+                  type="button"
+                  onClick={() => setModalMode('manual')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-lg transition-all ${
+                    modalMode === 'manual'
+                      ? 'bg-[#6C5CE7] text-white shadow-sm'
+                      : 'text-[#687086] hover:text-[#171A2B]'
+                  }`}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Manual Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalMode('invite')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-semibold rounded-lg transition-all ${
+                    modalMode === 'invite'
+                      ? 'bg-[#6C5CE7] text-white shadow-sm'
+                      : 'text-[#687086] hover:text-[#171A2B]'
+                  }`}
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  Send Email Invite
+                </button>
+              </div>
+
+              {modalMode === 'manual' ? (
+                /* Manual Creation Form with Direct Password Assignment */
+                <form onSubmit={handleCreateManual} className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-[#687086]">First Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. John"
+                        value={manualFirstName}
+                        onChange={(e) => setManualFirstName(e.target.value)}
+                        className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-[#687086]">Last Name *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Doe"
+                        value={manualLastName}
+                        onChange={(e) => setManualLastName(e.target.value)}
+                        className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-[#687086]">Work Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="john.doe@company.co.uk"
+                      value={manualEmail}
+                      onChange={(e) => setManualEmail(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-[#687086]">Phone Number (Optional)</label>
+                      <input
+                        type="tel"
+                        placeholder="+44 7700 900077"
+                        value={manualPhone}
+                        onChange={(e) => setManualPhone(e.target.value)}
+                        className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-[#687086]">Designated Role *</label>
+                      <select
+                        value={manualRole}
+                        onChange={(e) => setManualRole(e.target.value as any)}
+                        className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7] bg-white font-medium"
+                      >
+                        <option value="Manager">Manager (Operations Control)</option>
+                        <option value="Supervisor">Operator (Rosters & Attendance)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-medium text-[#687086]">Initial Password *</label>
+                      <button
+                        type="button"
+                        onClick={handleGeneratePassword}
+                        className="text-xs font-semibold text-[#6C5CE7] hover:text-[#5A4ACD] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <KeyRound className="h-3 w-3" />
+                        Generate Strong Password
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={8}
+                        placeholder="Enter secure password (min. 8 characters)"
+                        value={manualPassword}
+                        onChange={(e) => setManualPassword(e.target.value)}
+                        className="w-full h-10 pl-3 pr-10 rounded-lg border border-[#E5E3F2] text-xs font-mono text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[#687086] hover:text-[#171A2B] transition-colors"
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-[#687086]">
+                      Minimum 8 characters. You will provide this password directly to the member.
+                    </p>
+                  </div>
+
+
+                  <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#E5E3F2]">
+                    <Button type="button" variant="outline" size="sm" onClick={handleCloseModal}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" variant="primary" size="sm" isLoading={isCreatingManual}>
+                      Create Team Member
+                    </Button>
+                  </div>
+                </form>
+              ) : (
+                /* Standard Email Invite Form via Brevo */
+                <form onSubmit={handleSendInvite} className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-[#687086]">Work Email Address *</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="colleague@company.co.uk"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-[#687086]">Full Name (Optional)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Jane Smith"
+                      value={inviteName}
+                      onChange={(e) => setInviteName(e.target.value)}
+                      className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-[#687086]">Designated Role *</label>
+                    <select
+                      value={inviteRole}
+                      onChange={(e) => setInviteRole(e.target.value as any)}
+                      className="w-full h-10 px-3 rounded-lg border border-[#E5E3F2] text-xs text-[#171A2B] focus:outline-none focus:border-[#6C5CE7] bg-white font-medium"
+                    >
+                      <option value="Manager">Manager (Operations Control)</option>
+                      <option value="Supervisor">Operator (Rosters & Attendance)</option>
+                    </select>
+                  </div>
+
+                  <div className="p-3 bg-[#FAF9FF] border border-[#D5D0FA] rounded-xl flex items-start gap-2.5 text-xs text-[#5A4ACD]">
+                    <Mail className="h-4 w-4 shrink-0 mt-0.5 text-[#6C5CE7]" />
+                    <span>
+                      An activation email containing a secure 72-hour one-time link will be sent via Brevo transactional pipeline.
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-4 border-t border-[#E5E3F2]">
+                    <Button type="button" variant="outline" size="sm" onClick={handleCloseModal}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" variant="primary" size="sm" isLoading={isInviting}>
+                      Send Invitation
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
         </Modal>
       </PageContainer>
     </AppShell>

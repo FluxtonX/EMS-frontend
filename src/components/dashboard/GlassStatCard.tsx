@@ -71,6 +71,11 @@ export function GlassStatCard({
   const pathD = `M ${points.join(' L ')}`;
   const areaD = `M 0,${height} L ${points.join(' L ')} L ${width},${height} Z`;
 
+  // Parse trend string into badge value (e.g. "+2.1%") and context ("on target")
+  const trendParts = trend.trim().split(' ');
+  const primaryTrend = trendParts[0];
+  const contextTrend = trendParts.slice(1).join(' ');
+
   return (
     <div className="relative overflow-hidden rounded-2xl bg-white/80 p-5 shadow-[0_8px_24px_-4px_rgba(22,34,66,0.04)] backdrop-blur-xl border border-white/80 transition-all duration-300 hover:shadow-[0_12px_32px_-4px_rgba(22,34,66,0.08)] hover:-translate-y-0.5">
       {/* Top row */}
@@ -92,14 +97,23 @@ export function GlassStatCard({
       </div>
 
       {/* Trend + Sparkline */}
-      <div className="mt-4 flex items-end justify-between pt-2">
-        <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${colorMap.trendBg} shadow-2xs`}>
-          {trendDirection === 'down' ? (
-            <TrendingDown className="h-3 w-3" />
-          ) : (
-            <TrendingUp className="h-3 w-3" />
+      <div className="mt-4 flex items-end justify-between pt-2 gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 min-w-0 pr-1">
+          <div
+            className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[11px] font-bold ${colorMap.trendBg} shadow-2xs shrink-0 whitespace-nowrap`}
+          >
+            {trendDirection === 'down' ? (
+              <TrendingDown className="h-3 w-3" />
+            ) : (
+              <TrendingUp className="h-3 w-3" />
+            )}
+            <span>{primaryTrend}</span>
+          </div>
+          {contextTrend && (
+            <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap truncate">
+              {contextTrend}
+            </span>
           )}
-          <span>{trend}</span>
         </div>
 
         {/* Tailored Colored Sparkline */}

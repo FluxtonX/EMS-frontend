@@ -30,7 +30,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#F5F3FF]">
+    <div className="flex h-screen w-full overflow-hidden bg-transparent">
       {/* Desktop Sidebar — rendered as static layout element */}
       <Sidebar />
 

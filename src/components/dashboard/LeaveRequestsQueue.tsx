@@ -114,23 +114,21 @@ export function LeaveRequestsQueue() {
                 </div>
               </div>
 
-              {/* Quick Actions */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                <button
-                  onClick={() => handleDecision(item.id, 'approved')}
-                  className="flex h-7 items-center gap-1 rounded-lg bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 border border-emerald-200/80 transition-colors shadow-2xs"
-                  title="Approve leave request"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Approve</span>
-                </button>
+              {/* Quick Actions matching Screenshot (X in white circle, Check in Royal Purple circle) */}
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => handleDecision(item.id, 'rejected')}
-                  className="flex h-7 items-center gap-1 rounded-lg bg-slate-50 px-2 text-xs font-semibold text-slate-600 hover:bg-rose-50 hover:text-rose-700 border border-slate-200 transition-colors"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 transition-colors shadow-2xs"
                   title="Reject leave request"
                 >
                   <X className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Reject</span>
+                </button>
+                <button
+                  onClick={() => handleDecision(item.id, 'approved')}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-[#6C5CE7] hover:bg-[#5A4ACD] text-white shadow-xs transition-transform hover:scale-105"
+                  title="Approve leave request"
+                >
+                  <Check className="h-3.5 w-3.5 stroke-[2.5]" />
                 </button>
               </div>
             </div>

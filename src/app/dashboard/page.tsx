@@ -97,7 +97,7 @@ export default function DashboardPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-white/80 px-3.5 py-2 text-xs font-semibold text-[#171A2B] shadow-xs border border-white/90 backdrop-blur-md hover:bg-[#F5F3FF] hover:text-[#6C5CE7] transition-all"
             >
               <MessageSquare className="h-4 w-4 text-[#6C5CE7]" />
-              <span>Real-Time Chat</span>
+              <span>Chat</span>
             </Link>
             <Link
               href="/employees"
@@ -111,7 +111,7 @@ export default function DashboardPage() {
 
         {/* 4 Stat Cards Row (Strictly matching Screenshot 1) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {/* Card 1: Electric Cyan-Blue Hero Card */}
+          {/* Card 1: Royal Purple Hero Card */}
           <HeroStatCard
             title="Total Active Workforce"
             value={activeEmployeesCount}
@@ -138,7 +138,7 @@ export default function DashboardPage() {
             title="Shifts Today"
             value="18 Shifts"
             subtitle="Morning & afternoon rotations"
-            trend="4 currently on duty"
+            trend="4 Active on duty"
             trendDirection="up"
             icon={CalendarCheck}
             accentColor="purple"
@@ -150,7 +150,7 @@ export default function DashboardPage() {
             title="SIA Compliance"
             value="98.2%"
             subtitle="All badge credentials verified"
-            trend="0 Expired · 2 Expiring"
+            trend="100% SIA Verified"
             trendDirection="neutral"
             icon={ShieldAlert}
             accentColor="amber"

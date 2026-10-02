@@ -129,8 +129,8 @@ export function WorkforceOverviewChart() {
                 }}
                 className={`rounded-lg px-2.5 py-1 transition-all ${
                   activeRange === range
-                    ? 'bg-white text-[#6C5CE7] shadow-2xs font-bold'
-                    : 'hover:text-slate-900'
+                    ? 'bg-[#171A2B] text-white shadow-xs font-bold'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
                 {range}

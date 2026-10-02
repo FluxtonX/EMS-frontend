@@ -112,7 +112,7 @@ export default function AuditTrailPage() {
     try {
       setLoading(true);
       const token = typeof window !== 'undefined' ? localStorage.getItem('workforce_auth_session') : null;
-      let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (token) {
         try {
           const parsed = JSON.parse(token);
@@ -120,7 +120,8 @@ export default function AuditTrailPage() {
         } catch { /* noop */ }
       }
 
-      const res = await fetch('http://localhost:4000/api/v1/companies/audit', { headers });
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+      const res = await fetch(`${apiUrl}/api/v1/companies/audit`, { headers });
       if (res.ok) {
         const data = await res.json();
         const serverLogs = Array.isArray(data) ? data : data.data || [];

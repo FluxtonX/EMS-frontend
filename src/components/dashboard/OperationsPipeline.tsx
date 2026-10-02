@@ -34,39 +34,24 @@ export function OperationsPipeline() {
         </Link>
       </div>
 
-      {/* Roster Progress Bars */}
-      <div className="mt-4 space-y-3.5">
-        {/* Morning Shift */}
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="font-semibold text-slate-700">Morning Shift (06:00 – 14:00)</span>
-            <span className="font-bold text-emerald-600">100% Handed Over</span>
-          </div>
-          <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full rounded-full bg-emerald-500 w-full transition-all duration-500" />
-          </div>
+      {/* Roster Pipeline Bars strictly matching Screenshot 1 visual format in Royal Purple */}
+      <div className="mt-4 space-y-2.5">
+        {/* Stage 1: Morning Rota */}
+        <div className="flex items-center justify-between rounded-xl bg-[#6C5CE7] text-white px-4 py-2.5 shadow-xs transition-all hover:translate-x-0.5">
+          <span className="text-xs font-bold tracking-tight">Morning Shift (06:00 – 14:00)</span>
+          <span className="text-xs font-extrabold font-mono">28</span>
         </div>
 
-        {/* Afternoon Shift */}
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="font-semibold text-slate-700">Afternoon Shift (14:00 – 22:00)</span>
-            <span className="font-bold text-[#6C5CE7]">85% Active Deployment</span>
-          </div>
-          <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full rounded-full bg-[#6C5CE7] w-[85%] transition-all duration-500" />
-          </div>
+        {/* Stage 2: Afternoon Rota */}
+        <div className="flex items-center justify-between rounded-xl bg-[#806FF0] text-white px-4 py-2.5 shadow-xs transition-all hover:translate-x-0.5">
+          <span className="text-xs font-bold tracking-tight">Afternoon Shift (14:00 – 22:00)</span>
+          <span className="text-xs font-extrabold font-mono">14</span>
         </div>
 
-        {/* Night Guard */}
-        <div>
-          <div className="flex items-center justify-between text-xs mb-1">
-            <span className="font-semibold text-slate-700">Night Patrol &amp; Static (22:00 – 06:00)</span>
-            <span className="font-bold text-[#806FF0]">Roster Locked · 100% Ready</span>
-          </div>
-          <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-            <div className="h-full rounded-full bg-[#806FF0] w-[45%] transition-all duration-500" />
-          </div>
+        {/* Stage 3: Night Patrol */}
+        <div className="flex items-center justify-between rounded-xl bg-[#A78BFA] text-white px-4 py-2.5 shadow-xs transition-all hover:translate-x-0.5">
+          <span className="text-xs font-bold tracking-tight">Night Patrol &amp; Static (22:00 – 06:00)</span>
+          <span className="text-xs font-extrabold font-mono">8</span>
         </div>
       </div>
 
