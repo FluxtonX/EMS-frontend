@@ -39,7 +39,7 @@ export async function fetchSites(): Promise<Site[]> {
       const json = await res.json();
       return json.data;
     },
-    { ttlMs: 10 * 60 * 1000 }
+    { ttlMs: 30 * 1000 }
   );
 }
 
@@ -57,7 +57,7 @@ export async function fetchSiteById(id: string): Promise<Site> {
       const json = await res.json();
       return json.data;
     },
-    { ttlMs: 10 * 60 * 1000 }
+    { ttlMs: 30 * 1000 }
   );
 }
 
@@ -90,7 +90,7 @@ export async function fetchJobTypes(): Promise<JobType[]> {
       const json = await res.json();
       return json.data;
     },
-    { ttlMs: 10 * 60 * 1000 }
+    { ttlMs: 30 * 1000 }
   );
 }
 
@@ -123,7 +123,7 @@ export async function fetchSiteJobs(siteId: string): Promise<SiteJob[]> {
       const json = await res.json();
       return json.data;
     },
-    { ttlMs: 10 * 60 * 1000 }
+    { ttlMs: 30 * 1000 }
   );
 }
 
@@ -138,6 +138,7 @@ export async function addSiteJobApi(siteId: string, data: any): Promise<SiteJob>
     throw new Error(errorJson?.error?.message || 'Failed to attach job role to site.');
   }
   apiCache.invalidate(`sites:jobs:${siteId}`);
+  apiCache.invalidate('sites:jobs:matrix');
   apiCache.invalidate('sites');
   const json = await res.json();
   return json.data;
@@ -154,7 +155,79 @@ export async function updateSiteJobApi(siteId: string, jobId: string, data: any)
     throw new Error(errorJson?.error?.message || 'Failed to update job rates.');
   }
   apiCache.invalidate(`sites:jobs:${siteId}`);
+  apiCache.invalidate('sites:jobs:matrix');
   apiCache.invalidate('sites');
   const json = await res.json();
   return json.data;
 }
+
+export async function deleteSiteJobApi(siteId: string, jobId: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/sites/${siteId}/jobs/${jobId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || 'Failed to delete site job rate.');
+  }
+  apiCache.invalidate(`sites:jobs:${siteId}`);
+  apiCache.invalidate('sites:jobs:matrix');
+  apiCache.invalidate('sites');
+  const json = await res.json();
+  return json.data;
+}
+
+export async function fetchSiteJobsMatrixApi(): Promise<Array<SiteJob & { siteName?: string; siteCode?: string }>> {
+  return apiCache.withCache(
+    'sites:jobs:matrix',
+    async () => {
+      const res = await fetch(`${API_BASE_URL}/sites/jobs/matrix`, {
+        headers: getAuthHeaders(),
+      });
+      if (!res.ok) {
+        const errorJson = await res.json().catch(() => ({}));
+        throw new Error(errorJson?.error?.message || 'Failed to fetch sites and rates matrix.');
+      }
+      const json = await res.json();
+      const raw = json.data || [];
+      return raw.map((item: any) => ({
+        ...item,
+        siteName: item.site?.name || item.siteName || '',
+        siteCode: item.site?.code || item.siteCode || '',
+      }));
+    },
+    { ttlMs: 60 * 1000 }
+  );
+}
+
+export async function updateJobTypeApi(id: string, data: Partial<JobType>): Promise<JobType> {
+  const res = await fetch(`${API_BASE_URL}/job-types/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || 'Failed to update job role.');
+  }
+  apiCache.invalidate('job-types');
+  apiCache.invalidate('sites:jobs:matrix');
+  const json = await res.json();
+  return json.data;
+}
+
+export async function deleteJobTypeApi(id: string): Promise<{ success: boolean; message: string }> {
+  const res = await fetch(`${API_BASE_URL}/job-types/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || 'Failed to delete job role.');
+  }
+  apiCache.invalidate('job-types');
+  apiCache.invalidate('sites:jobs:matrix');
+  const json = await res.json();
+  return json.data;
+}
+

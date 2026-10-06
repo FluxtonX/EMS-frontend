@@ -17,85 +17,8 @@ import {
 
 import { AppShell } from '@/components/layout/AppShell';
 
-interface AuditLog {
-  id: string;
-  companyId: string;
-  userId?: string;
-  action: string;
-  entity: string;
-  entityId?: string;
-  oldValue?: any;
-  newValue?: any;
-  ipAddress?: string;
-  userAgent?: string;
-  createdAt: string;
-}
-
-const MOCK_AUDIT_LOGS: AuditLog[] = [
-  {
-    id: 'aud-001',
-    companyId: 'comp-1',
-    userId: 'usr-admin-1',
-    action: 'INVOICE_CREATE',
-    entity: 'Invoice',
-    entityId: 'inv-303',
-    newValue: { invoiceNumber: 'INV-2026-0003', total: 9360.00, clientId: 'cli-103' },
-    ipAddress: '192.168.1.104',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0',
-    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-  },
-  {
-    id: 'aud-002',
-    companyId: 'comp-1',
-    userId: 'usr-admin-1',
-    action: 'PAYRUN_APPROVED',
-    entity: 'PayRun',
-    entityId: 'pr-902',
-    oldValue: { status: 'pending_approval' },
-    newValue: { status: 'approved', approvedBy: 'usr-admin-1' },
-    ipAddress: '192.168.1.104',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0',
-    createdAt: new Date(Date.now() - 45 * 60000).toISOString(),
-  },
-  {
-    id: 'aud-003',
-    companyId: 'comp-1',
-    userId: 'usr-sup-2',
-    action: 'ATTENDANCE_RECONCILE',
-    entity: 'Attendance',
-    entityId: 'att-501',
-    oldValue: { varianceMinutes: 45, status: 'flagged' },
-    newValue: { status: 'reconciled', reason: 'Supervisor sign-off for London tube central line delay' },
-    ipAddress: '82.41.112.5',
-    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X)',
-    createdAt: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-  {
-    id: 'aud-004',
-    companyId: 'comp-1',
-    userId: 'usr-mgr-1',
-    action: 'ASSIGNMENT_TRANSFER',
-    entity: 'Assignment',
-    entityId: 'asg-701',
-    oldValue: { siteId: 'site-canary-1', payRate: 15.50 },
-    newValue: { siteId: 'site-westfield-2', payRate: 16.75, note: 'Permanent venue reassignment' },
-    ipAddress: '192.168.1.55',
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
-    createdAt: new Date(Date.now() - 5 * 3600000).toISOString(),
-  },
-  {
-    id: 'aud-005',
-    companyId: 'comp-1',
-    userId: 'usr-admin-1',
-    action: 'LICENCE_VERIFIED',
-    entity: 'Licence',
-    entityId: 'lic-881',
-    newValue: { number: '1002-8849-0192-3841', type: 'SIA Door Supervision', verified: true },
-    ipAddress: '192.168.1.104',
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/128.0',
-    createdAt: new Date(Date.now() - 8 * 3600000).toISOString(),
-  },
-];
+import { fetchAuditLogs, AuditLog } from '@/lib/api/audit';
+import { toast } from '@/lib/toastStore';
 
 export default function AuditTrailPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -105,32 +28,17 @@ export default function AuditTrailPage() {
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   useEffect(() => {
-    fetchAuditLogs();
+    loadAuditLogs();
   }, []);
 
-  const fetchAuditLogs = async () => {
+  const loadAuditLogs = async () => {
     try {
       setLoading(true);
-      const token = typeof window !== 'undefined' ? localStorage.getItem('workforce_auth_session') : null;
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (token) {
-        try {
-          const parsed = JSON.parse(token);
-          if (parsed.accessToken) headers['Authorization'] = `Bearer ${parsed.accessToken}`;
-        } catch { /* noop */ }
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-      const res = await fetch(`${apiUrl}/api/v1/companies/audit`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        const serverLogs = Array.isArray(data) ? data : data.data || [];
-        setLogs(serverLogs.length > 0 ? serverLogs : MOCK_AUDIT_LOGS);
-      } else {
-        setLogs(MOCK_AUDIT_LOGS);
-      }
-    } catch {
-      setLogs(MOCK_AUDIT_LOGS);
+      const data = await fetchAuditLogs();
+      setLogs(data);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to retrieve authoritative audit logs.');
+      setLogs([]);
     } finally {
       setLoading(false);
     }

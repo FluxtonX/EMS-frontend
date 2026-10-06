@@ -30,6 +30,7 @@ import { useUIStore } from '@/lib/uiStore';
 import { useWorkforceStore } from '@/lib/stores/workforceStore';
 import { useQuery } from '@tanstack/react-query';
 import { fetchUnreadChatCount } from '@/lib/api/chat';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 interface NavItem {
   label: string;
@@ -39,31 +40,35 @@ interface NavItem {
   alert?: boolean;
   dynamicBadge?: boolean;
   dynamicChatBadge?: boolean;
+  roles?: string[];
 }
 
 const navigationItems: NavItem[] = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Chat', href: '/chat', icon: MessageSquare, dynamicChatBadge: true },
   { label: 'Employees', href: '/employees', icon: Users, dynamicBadge: true },
-  { label: 'Team Members', href: '/team', icon: UserCog },
+  { label: 'Team Members', href: '/team', icon: UserCog, roles: ['OWNER', 'ADMIN'] },
   { label: 'Sites', href: '/sites', icon: Building2 },
-  { label: 'Job Roles & Rates', href: '/jobs', icon: Briefcase },
+  { label: 'Job Roles & Rates', href: '/jobs', icon: Briefcase, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
   { label: 'Assignments', href: '/assignments', icon: UserCheck },
   { label: 'Shifts Schedule', href: '/shifts', icon: Calendar },
   { label: 'Attendance', href: '/attendance', icon: Clock },
-  { label: 'Timesheets', href: '/timesheets', icon: FileSpreadsheet },
-  { label: 'Payroll', href: '/payroll', icon: Banknote },
-  { label: 'Clients & Invoicing', href: '/clients', icon: ReceiptText },
-  { label: 'Licences & Compliance', href: '/compliance', icon: FileCheck, alert: true },
-  { label: 'Leave Management', href: '/leave', icon: CalendarOff },
-  { label: 'Reports', href: '/reports', icon: BarChart3 },
+  { label: 'Timesheets', href: '/timesheets', icon: FileSpreadsheet, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
+  { label: 'Payroll', href: '/payroll', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
+  { label: 'Clients & Invoicing', href: '/clients', icon: ReceiptText, roles: ['OWNER', 'ADMIN'] },
+  { label: 'Licences & Compliance', href: '/compliance', icon: FileCheck, alert: true, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
+  { label: 'Leave Management', href: '/leave', icon: CalendarOff, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
+  { label: 'Reports', href: '/reports', icon: BarChart3, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
   { label: 'Notifications', href: '/notifications', icon: Bell },
-  { label: 'Audit Trail', href: '/audit', icon: History },
+  { label: 'Audit Trail', href: '/audit', icon: History, roles: ['OWNER', 'ADMIN'] },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { isSidebarCollapsed, toggleSidebar } = useUIStore();
+  const { session } = useAuth();
+  const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
+  const currentRole = rawRole === 'SUPERVISOR' ? 'OPERATOR' : rawRole;
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Synchronous workforce entity count from centralized store
@@ -151,7 +156,9 @@ export function Sidebar() {
 
       {/* Nav items */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-0.5 scrollbar-thin">
-        {navigationItems.map((item) => {
+        {navigationItems
+          .filter((item) => !item.roles || item.roles.includes(currentRole))
+          .map((item) => {
           const Icon = item.icon;
           const isActive =
             pathname === item.href ||
@@ -236,7 +243,20 @@ export function Sidebar() {
 
       {/* Footer */}
       {!isSidebarCollapsed && (
-        <div className="p-3 border-t border-[#E5E3F2] bg-[#FAFAFA] shrink-0">
+        <div className="p-3 border-t border-[#E5E3F2] bg-[#FAFAFA] shrink-0 space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-[#9096A9]">Access Level</span>
+            <span className={cn(
+              "px-2 py-0.5 rounded text-[10px] font-bold tracking-tight uppercase border",
+              currentRole === 'OWNER' || currentRole === 'ADMIN'
+                ? "bg-purple-50 text-purple-700 border-purple-200"
+                : currentRole === 'MANAGER'
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : "bg-amber-50 text-amber-700 border-amber-200"
+            )}>
+              {currentRole === 'OWNER' || currentRole === 'ADMIN' ? 'Owner Portal' : currentRole === 'MANAGER' ? 'Ops Manager' : 'Operator'}
+            </span>
+          </div>
           <div className="flex items-center gap-2 text-[11px] text-[#687086]">
             <ShieldAlert className="h-3.5 w-3.5 text-[#18B887] shrink-0" />
             <span>SIA Compliance: 98.4%</span>

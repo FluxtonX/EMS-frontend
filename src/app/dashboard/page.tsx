@@ -51,7 +51,13 @@ export default function DashboardPage() {
   const activeEmployeesCount = employees.length > 0 ? employees.length : 38;
   const protectedSitesCount = sites.length > 0 ? sites.length : 4;
 
-  const userGreeting = session?.user?.firstName || 'Director';
+  const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
+  const currentRole = rawRole === 'SUPERVISOR' ? 'OPERATOR' : rawRole;
+  const isOperator = currentRole === 'OPERATOR';
+  const isManager = currentRole === 'MANAGER';
+  const isOwner = currentRole === 'OWNER' || currentRole === 'ADMIN';
+
+  const userGreeting = session?.user?.firstName || (isOperator ? 'Operator' : isManager ? 'Operations Manager' : 'Director');
 
   const todayFormatted = new Intl.DateTimeFormat('en-GB', {
     weekday: 'long',
@@ -86,8 +92,13 @@ export default function DashboardPage() {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-[#687086] mt-1">
-              Here is your workforce operational status for {todayFormatted} across{' '}
-              <span className="font-semibold text-[#171A2B]">{protectedSitesCount} active deployment sites</span>.
+              {isOperator ? (
+                <>Real-time dispatch telemetry and officer tracking for {todayFormatted} across{' '}<span className="font-semibold text-[#171A2B]">{protectedSitesCount} active deployment sites</span>.</>
+              ) : isManager ? (
+                <>Operational scheduling and workforce allocations for {todayFormatted} across{' '}<span className="font-semibold text-[#171A2B]">{protectedSitesCount} active deployment sites</span>.</>
+              ) : (
+                <>Executive workforce status and operations overview for {todayFormatted} across{' '}<span className="font-semibold text-[#171A2B]">{protectedSitesCount} active deployment sites</span>.</>
+              )}
             </p>
           </div>
 
@@ -99,13 +110,31 @@ export default function DashboardPage() {
               <MessageSquare className="h-4 w-4 text-[#6C5CE7]" />
               <span>Chat</span>
             </Link>
-            <Link
-              href="/employees"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#6C5CE7] hover:bg-[#5B4BC4] px-4 py-2 text-xs font-bold text-white shadow-md shadow-[#6C5CE7]/25 transition-all hover:-translate-y-0.5"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Add Employee</span>
-            </Link>
+            {isOperator ? (
+              <Link
+                href="/attendance"
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 hover:bg-amber-600 px-4 py-2 text-xs font-bold text-white shadow-md shadow-amber-500/25 transition-all hover:-translate-y-0.5"
+              >
+                <Clock className="h-4 w-4" />
+                <span>Live Attendance</span>
+              </Link>
+            ) : isManager ? (
+              <Link
+                href="/shifts"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#6C5CE7] hover:bg-[#5B4BC4] px-4 py-2 text-xs font-bold text-white shadow-md shadow-[#6C5CE7]/25 transition-all hover:-translate-y-0.5"
+              >
+                <CalendarCheck className="h-4 w-4" />
+                <span>Shift Roster</span>
+              </Link>
+            ) : (
+              <Link
+                href="/employees"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#6C5CE7] hover:bg-[#5B4BC4] px-4 py-2 text-xs font-bold text-white shadow-md shadow-[#6C5CE7]/25 transition-all hover:-translate-y-0.5"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Add Employee</span>
+              </Link>
+            )}
           </div>
         </div>
 

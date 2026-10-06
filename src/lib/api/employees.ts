@@ -59,7 +59,7 @@ export async function fetchEmployees(params: {
       const json = await res.json();
       return json.data;
     },
-    { ttlMs: 5 * 60 * 1000 }
+    { ttlMs: 30 * 1000 }
   );
 }
 
@@ -81,7 +81,7 @@ export async function fetchEmployeeById(id: string, token?: string): Promise<Emp
       const json = await res.json();
       return json.data;
     },
-    { ttlMs: 5 * 60 * 1000 }
+    { ttlMs: 30 * 1000 }
   );
 }
 

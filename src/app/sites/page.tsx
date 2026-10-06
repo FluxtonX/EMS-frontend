@@ -45,11 +45,17 @@ import {
   Edit2,
   AlertCircle,
   Info,
+  Radio,
+  Lock,
 } from 'lucide-react';
-import { mockSites, mockJobTypes } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function SitesPage() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
+  const currentRole = rawRole === 'SUPERVISOR' ? 'OPERATOR' : rawRole;
+  const isOperator = currentRole === 'OPERATOR';
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -113,19 +119,23 @@ export default function SitesPage() {
     syncJobTypes();
   }, [syncSites, syncJobTypes]);
 
-  const { data: realSiteJobs = [], isLoading: isLoadingSiteJobs } = useQuery({
-    queryKey: ['site-jobs', selectedSiteForRates?.id],
-    queryFn: () => (selectedSiteForRates ? fetchSiteJobs(selectedSiteForRates.id) : Promise.resolve([])),
-    enabled: !!selectedSiteForRates && hasRealSites,
-  });
+  // Synchronize selected site with store updates reactively
+  const activeSelectedSite = selectedSiteForRates
+    ? sites.find((s) => s.id === selectedSiteForRates.id) || selectedSiteForRates
+    : null;
 
-  const siteJobs = hasRealSites ? realSiteJobs : (selectedSiteForRates?.jobs || []);
+  const { data: siteJobs = [], isLoading: isLoadingSiteJobs } = useQuery({
+    queryKey: ['site-jobs', activeSelectedSite?.id],
+    queryFn: () => (activeSelectedSite?.id ? fetchSiteJobs(activeSelectedSite.id) : Promise.resolve([])),
+    enabled: !!activeSelectedSite?.id,
+  });
 
   // Mutations backed by instant store state
   const createSiteMutation = useMutation({
     mutationFn: (payload: any) => storeCreateSite(payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['sites'] });
+      syncSites(true);
       toast.success(`Deployment site ${data.name} [${data.code}] registered successfully.`);
       setIsCreateSiteOpen(false);
       setNewSite({
@@ -146,6 +156,7 @@ export default function SitesPage() {
     mutationFn: (payload: any) => storeCreateJobType(payload),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['job-types'] });
+      syncJobTypes(true);
       toast.success(`Role catalog updated: ${data.name} added.`);
       setNewJobType({ name: '', description: '' });
     },
@@ -156,10 +167,11 @@ export default function SitesPage() {
 
   const addSiteJobMutation = useMutation({
     mutationFn: ({ siteId, data }: { siteId: string; data: any }) => storeAddSiteJob(siteId, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['site-jobs', selectedSiteForRates?.id] });
+    onSuccess: (newRate) => {
+      queryClient.invalidateQueries({ queryKey: ['site-jobs', activeSelectedSite?.id] });
       queryClient.invalidateQueries({ queryKey: ['sites'] });
-      toast.success('Role and authoritative rate matrix attached to site.');
+      syncSites(true);
+      toast.success(`Role ${newRate?.jobType?.name || 'Rate'} attached to site successfully.`);
       setIsAddRateOpen(false);
       setRateForm({ jobTypeId: '', defaultPayRate: '', billingRate: '', currency: 'GBP' });
     },
@@ -172,7 +184,9 @@ export default function SitesPage() {
     mutationFn: ({ siteId, jobId, data }: { siteId: string; jobId: string; data: any }) =>
       storeUpdateSiteJob(siteId, jobId, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['site-jobs', selectedSiteForRates?.id] });
+      queryClient.invalidateQueries({ queryKey: ['site-jobs', activeSelectedSite?.id] });
+      queryClient.invalidateQueries({ queryKey: ['sites'] });
+      syncSites(true);
       toast.success('Site rates updated.');
       setEditingSiteJob(null);
     },
@@ -215,7 +229,7 @@ export default function SitesPage() {
 
   const handleAddSiteJob = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSiteForRates) return;
+    if (!activeSelectedSite) return;
     if (!rateForm.jobTypeId) {
       toast.error('Please select a global job role.');
       return;
@@ -228,7 +242,7 @@ export default function SitesPage() {
     }
 
     addSiteJobMutation.mutate({
-      siteId: selectedSiteForRates.id,
+      siteId: activeSelectedSite.id,
       data: {
         jobTypeId: rateForm.jobTypeId,
         defaultPayRate: pay,
@@ -244,42 +258,37 @@ export default function SitesPage() {
         title="Deployment Sites & Rates"
         subtitle="Physical client sites, security deployments, and centralized role-rate matrices."
         primaryAction={
-          <Button
-            variant="primary"
-            onClick={() => setIsCreateSiteOpen(true)}
-            className="gap-2 shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            New Deployment Site
-          </Button>
+          isOperator ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-semibold shadow-2xs">
+              <Radio className="w-3.5 h-3.5 text-amber-600" />
+              <span>Dispatch Read-Only View</span>
+            </div>
+          ) : (
+            <Button
+              variant="primary"
+              onClick={() => setIsCreateSiteOpen(true)}
+              className="gap-2 shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              New Deployment Site
+            </Button>
+          )
         }
         secondaryActions={
-          <div className="flex items-center gap-2">
-            {!hasRealSites && (
-              <Badge variant="info" size="sm" className="gap-1">
-                <Info className="w-3 h-3 text-[#6C5CE7]" />
-                Sample Sites Preview
-              </Badge>
-            )}
-            <Button
-              variant="outline"
-              onClick={() => setIsJobTypesDrawerOpen(true)}
-              className="gap-2"
-            >
-              <Briefcase className="w-4 h-4 text-slate-400" />
-              Role Catalog ({jobTypes.length})
-            </Button>
-          </div>
+          !isOperator ? (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setIsJobTypesDrawerOpen(true)}
+                className="gap-2"
+              >
+                <Briefcase className="w-4 h-4 text-slate-400" />
+                Role Catalog ({jobTypes.length})
+              </Button>
+            </div>
+          ) : undefined
         }
       >
-        {!hasRealSites && (
-          <div className="p-3 mb-6 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
-              <span>Showing sample client deployment sites. Click &quot;New Deployment Site&quot; to register your first live location.</span>
-            </div>
-          </div>
-        )}
 
         {/* Filter bar */}
         <div className="bg-white border border-[#E5E3F2] rounded-lg p-4 mb-6 shadow-xs flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -619,14 +628,14 @@ export default function SitesPage() {
 
       {/* SITE JOBS & AUTHORITATIVE RATE MATRIX DRAWER (SECTION 21) */}
       <Drawer
-        isOpen={!!selectedSiteForRates}
+        isOpen={!!activeSelectedSite}
         onClose={() => {
           setSelectedSiteForRates(null);
           setIsAddRateOpen(false);
           setEditingSiteJob(null);
         }}
-        title={`Rates Matrix: ${selectedSiteForRates?.name || ''}`}
-        description={`Authoritative pay & billing rates for ${selectedSiteForRates?.code || ''}. Overrides global defaults with zero duplicate tables.`}
+        title={`Rates Matrix: ${activeSelectedSite?.name || ''}`}
+        description={`Authoritative pay & billing rates for ${activeSelectedSite?.code || ''}. Overrides global defaults with zero duplicate tables.`}
         width="xl"
       >
         <div className="space-y-6">
@@ -635,7 +644,7 @@ export default function SitesPage() {
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-bold text-sky-900 flex items-center gap-2">
                 <Building2 className="w-4 h-4 text-sky-600" />
-                {selectedSiteForRates?.name} [{selectedSiteForRates?.code}]
+                {activeSelectedSite?.name} [{activeSelectedSite?.code}]
               </div>
               <Badge variant="success" size="sm">Authoritative Rates</Badge>
             </div>
@@ -645,7 +654,12 @@ export default function SitesPage() {
           </div>
 
           {/* Action to attach new role to site */}
-          {!isAddRateOpen ? (
+          {isOperator ? (
+            <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-lg text-xs text-amber-800 flex items-center gap-2">
+              <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Role & hourly rate administration is restricted to Operations Managers and Owners.</span>
+            </div>
+          ) : !isAddRateOpen ? (
             <Button
               variant="outline"
               onClick={() => setIsAddRateOpen(true)}
@@ -782,14 +796,17 @@ export default function SitesPage() {
                               <Badge variant={sj.status === 'active' ? 'success' : 'neutral'} size="sm">
                                 {sj.status}
                               </Badge>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => setEditingSiteJob(sj)}
-                                className="h-7 w-7 p-0"
-                              >
-                                <Edit2 className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
-                              </Button>
+                              {!isOperator && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => setEditingSiteJob(sj)}
+                                  className="h-7 w-7 p-0"
+                                  title="Edit rate"
+                                >
+                                  <Edit2 className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                                </Button>
+                              )}
                             </div>
                           </div>
 
@@ -862,9 +879,9 @@ export default function SitesPage() {
                               variant="primary"
                               isLoading={updateSiteJobMutation.isPending}
                               onClick={() =>
-                                selectedSiteForRates &&
+                                activeSelectedSite &&
                                 updateSiteJobMutation.mutate({
-                                  siteId: selectedSiteForRates.id,
+                                  siteId: activeSelectedSite.id,
                                   jobId: sj.id,
                                   data: {
                                     defaultPayRate: editingSiteJob.defaultPayRate,

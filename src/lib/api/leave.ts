@@ -88,7 +88,7 @@ export async function fetchLeaveRequestsApi(params: {
       const json = await res.json();
       return json.data;
     },
-    { ttlMs: 5 * 60 * 1000 }
+    { ttlMs: 30 * 1000 }
   );
 }
 
@@ -152,6 +152,6 @@ export async function fetchLeaveStatsApi(employeeId: string): Promise<LeaveStats
       const json = await res.json();
       return json.data;
     },
-    { ttlMs: 5 * 60 * 1000 }
+    { ttlMs: 30 * 1000 }
   );
 }

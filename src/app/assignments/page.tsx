@@ -44,10 +44,20 @@ import {
   XCircle,
   History,
   UserX,
+  AlertTriangle,
+  ArrowUpRight,
+  Radio,
 } from 'lucide-react';
+import Link from 'next/link';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function AssignmentsPage() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
+  const currentRole = rawRole === 'SUPERVISOR' ? 'OPERATOR' : rawRole;
+  const isOperator = currentRole === 'OPERATOR';
+
   const { employees, fetchEmployees } = useWorkforceStore();
 
   // Filters & State
@@ -98,6 +108,16 @@ export default function AssignmentsPage() {
     staleTime: 5 * 60 * 1000,
   });
 
+  const realSites = useMemo(() => {
+    const list = sites.filter((s) => !s.id.startsWith('site-demo-'));
+    return list.length > 0 ? list : sites;
+  }, [sites]);
+
+  const candidateEmployees = useMemo(() => {
+    const real = employees.filter((e) => !e.id.startsWith('emp-demo-'));
+    return real.length > 0 ? real : employees;
+  }, [employees]);
+
   // Fetch Assignments
   const {
     data: assignments = [],
@@ -112,18 +132,44 @@ export default function AssignmentsPage() {
   });
 
   // Fetch site jobs when selecting site in Deploy Modal
-  const { data: deploySiteJobs = [], isLoading: isLoadingDeployJobs } = useQuery({
+  const { data: rawDeploySiteJobs = [], isLoading: isLoadingDeployJobs } = useQuery({
     queryKey: ['site-jobs', deploySiteId],
     queryFn: () => fetchSiteJobs(deploySiteId),
     enabled: !!deploySiteId,
   });
 
+  const deploySiteJobs = useMemo(
+    () => (rawDeploySiteJobs || []).filter((j) => j.status === 'active'),
+    [rawDeploySiteJobs]
+  );
+
   // Fetch site jobs when selecting site in Transfer Modal
-  const { data: transferSiteJobs = [], isLoading: isLoadingTransferJobs } = useQuery({
+  const { data: rawTransferSiteJobs = [], isLoading: isLoadingTransferJobs } = useQuery({
     queryKey: ['site-jobs', transferSiteId],
     queryFn: () => fetchSiteJobs(transferSiteId),
     enabled: !!transferSiteId,
   });
+
+  const transferSiteJobs = useMemo(
+    () => (rawTransferSiteJobs || []).filter((j) => j.status === 'active'),
+    [rawTransferSiteJobs]
+  );
+
+  // Auto-populate first job role and default rate on deploy site change
+  useEffect(() => {
+    if (deploySiteId && deploySiteJobs.length > 0 && !deploySiteJobId) {
+      setDeploySiteJobId(deploySiteJobs[0].id);
+      setDeployPayRate(deploySiteJobs[0].defaultPayRate);
+    }
+  }, [deploySiteId, deploySiteJobs, deploySiteJobId]);
+
+  // Auto-populate first job role and default rate on transfer site change
+  useEffect(() => {
+    if (transferSiteId && transferSiteJobs.length > 0 && !transferSiteJobId) {
+      setTransferSiteJobId(transferSiteJobs[0].id);
+      setTransferPayRate(transferSiteJobs[0].defaultPayRate);
+    }
+  }, [transferSiteId, transferSiteJobs, transferSiteJobId]);
 
   // Fetch Employee History for modal
   const { data: employeeHistory = [], isLoading: isLoadingHistory } = useQuery({
@@ -233,8 +279,8 @@ export default function AssignmentsPage() {
   );
 
   const unassignedEmployees = useMemo(
-    () => employees.filter((e) => e.employmentStatus === 'active' && !activeEmployeeIds.has(e.id)),
-    [employees, activeEmployeeIds]
+    () => candidateEmployees.filter((e) => e.employmentStatus === 'active' && !activeEmployeeIds.has(e.id)),
+    [candidateEmployees, activeEmployeeIds]
   );
 
   const activeSitesCovered = useMemo(() => {
@@ -397,13 +443,20 @@ export default function AssignmentsPage() {
         title="Workforce Assignments"
         subtitle="Real-time operational deployments, site role mappings, and locked historical compensation rates."
         primaryAction={
-          <Button
-            onClick={() => setIsDeployModalOpen(true)}
-            className="bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_4px_rgba(108,92,231,0.25)] flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Deploy Workforce Member
-          </Button>
+          isOperator ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-semibold shadow-2xs">
+              <Radio className="w-3.5 h-3.5 text-amber-600" />
+              <span>Live Deployment Monitor</span>
+            </div>
+          ) : (
+            <Button
+              onClick={() => setIsDeployModalOpen(true)}
+              className="bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_2px_4px_rgba(108,92,231,0.25)] flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Deploy Workforce Member
+            </Button>
+          )
         }
       >
         {/* KPI Cards */}
@@ -490,8 +543,8 @@ export default function AssignmentsPage() {
                   }}
                   className="text-xs font-medium bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7]"
                 >
-                  <option value="all">All Sites ({sites.length})</option>
-                  {sites.map((s) => (
+                  <option value="all">All Sites ({realSites.length})</option>
+                  {realSites.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>
@@ -648,7 +701,7 @@ export default function AssignmentsPage() {
                         {/* Actions */}
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {a.status === 'active' ? (
+                            {!isOperator && a.status === 'active' ? (
                               <>
                                 <Button
                                   variant="secondary"
@@ -714,94 +767,140 @@ export default function AssignmentsPage() {
           maxWidth="lg"
         >
           <form onSubmit={handleDeploySubmit} className="space-y-4">
-            {/* Step 1: Select Employee */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Select Workforce Member <span className="text-rose-500">*</span>
-              </label>
-              <select
-                value={deployEmployeeId}
-                onChange={(e) => setDeployEmployeeId(e.target.value)}
-                required
-                className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7]"
-              >
-                <option value="">-- Choose an employee --</option>
-                {employees
-                  .filter((e) => e.employmentStatus === 'active')
-                  .map((e) => {
-                    const isAlreadyAssigned = activeEmployeeIds.has(e.id);
-                    return (
-                      <option key={e.id} value={e.id}>
-                        {e.firstName} {e.lastName} ({e.employeeNumber})
-                        {isAlreadyAssigned ? ' [Already Assigned - Transfer recommended]' : ' [Available]'}
-                      </option>
-                    );
-                  })}
-              </select>
-              {deployEmployeeId && activeEmployeeIds.has(deployEmployeeId) && (
-                <div className="p-2.5 mt-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>
-                    This employee already has an active deployment. The system requires an <strong>Atomic Transfer</strong> to preserve historical payroll fidelity instead of an initial assignment.
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Step 2: Select Site */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Step 1: Select Employee */}
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Destination Client Site <span className="text-rose-500">*</span>
+                  Select Workforce Member <span className="text-rose-500">*</span>
                 </label>
                 <select
-                  value={deploySiteId}
-                  onChange={(e) => {
-                    setDeploySiteId(e.target.value);
-                    setDeploySiteJobId('');
-                    setDeployPayRate('');
-                  }}
+                  value={deployEmployeeId}
+                  onChange={(e) => setDeployEmployeeId(e.target.value)}
                   required
                   className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7]"
                 >
-                  <option value="">-- Choose a site --</option>
-                  {sites.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name} ({s.address?.city || 'UK'})
-                    </option>
-                  ))}
+                  <option value="">-- Choose an employee --</option>
+                  {candidateEmployees
+                    .filter((e) => e.employmentStatus === 'active')
+                    .map((e) => {
+                      const isAlreadyAssigned = activeEmployeeIds.has(e.id);
+                      return (
+                        <option key={e.id} value={e.id}>
+                          {e.firstName} {e.lastName} ({e.employeeNumber})
+                          {isAlreadyAssigned ? ' [Already Assigned - Transfer Required]' : ' [Available]'}
+                        </option>
+                      );
+                    })}
                 </select>
+                {deployEmployeeId && activeEmployeeIds.has(deployEmployeeId) && (() => {
+                  const currentAssign = activeAssignments.find((a) => a.employeeId === deployEmployeeId);
+                  return (
+                    <div className="p-3 mt-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-semibold">
+                            Employee already has an active deployment at {currentAssign?.siteJob?.site?.name || 'Current Site'} ({currentAssign?.siteJob?.jobType?.name || 'Role'}).
+                          </span>
+                          <p className="text-[11px] text-amber-800 mt-0.5">
+                            To preserve historical payroll records, staff cannot be deployed twice. Use an <strong>Atomic Transfer</strong> to move them.
+                          </p>
+                        </div>
+                      </div>
+                      {currentAssign && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            setIsDeployModalOpen(false);
+                            openTransferModal(currentAssign);
+                          }}
+                          className="bg-amber-600 hover:bg-amber-700 text-white text-xs px-2.5 py-1 font-semibold flex items-center gap-1.5"
+                        >
+                          <ArrowRightLeft className="w-3.5 h-3.5" />
+                          Switch to Transfer Flow
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
-              {/* Step 3: Select Site Job */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Site Role Configuration <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={deploySiteJobId}
-                  onChange={(e) => handleDeploySiteJobChange(e.target.value)}
-                  disabled={!deploySiteId || isLoadingDeployJobs}
-                  required
-                  className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7] disabled:bg-slate-50 disabled:text-slate-400"
-                >
-                  <option value="">
-                    {isLoadingDeployJobs
-                      ? 'Loading site roles...'
-                      : !deploySiteId
-                      ? '-- Select a site first --'
-                      : deploySiteJobs.length === 0
-                      ? 'No configured roles for this site'
-                      : '-- Choose configured role --'}
-                  </option>
-                  {deploySiteJobs.map((sj) => (
-                    <option key={sj.id} value={sj.id}>
-                      {sj.jobType?.name} (Def: £{sj.defaultPayRate}/hr)
+              {/* Step 2: Select Site */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Destination Client Site <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={deploySiteId}
+                    onChange={(e) => {
+                      setDeploySiteId(e.target.value);
+                      setDeploySiteJobId('');
+                      setDeployPayRate('');
+                    }}
+                    required
+                    className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7]"
+                  >
+                    <option value="">-- Choose a site --</option>
+                    {realSites.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code || s.address?.city || 'UK'})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Step 3: Select Site Job */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Site Role Configuration <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={deploySiteJobId}
+                    onChange={(e) => handleDeploySiteJobChange(e.target.value)}
+                    disabled={!deploySiteId || isLoadingDeployJobs || deploySiteJobs.length === 0}
+                    required
+                    className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7] disabled:bg-slate-50 disabled:text-slate-400"
+                  >
+                    <option value="">
+                      {isLoadingDeployJobs
+                        ? 'Loading site roles...'
+                        : !deploySiteId
+                        ? '-- Select a site first --'
+                        : deploySiteJobs.length === 0
+                        ? 'No configured roles for this site'
+                        : '-- Choose configured role --'}
                     </option>
-                  ))}
-                </select>
+                    {deploySiteJobs.map((sj) => (
+                      <option key={sj.id} value={sj.id}>
+                        {sj.jobType?.name || 'Role'} (Default: £{sj.defaultPayRate}/hr)
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-            </div>
+
+              {deploySiteId && !isLoadingDeployJobs && deploySiteJobs.length === 0 && (
+                <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs space-y-1.5">
+                  <div className="flex items-start gap-2 text-amber-900 font-semibold">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>No active job roles configured for this site yet</span>
+                  </div>
+                  <p className="text-amber-700 text-[11px]">
+                    Configure security job roles and hourly billing rates in the Sites &amp; Rates module to deploy workforce members here.
+                  </p>
+                  <div className="pt-1">
+                    <Link
+                      href="/sites"
+                      target="_blank"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                    >
+                      <span>Configure Rates in Sites</span>
+                      <ArrowUpRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </div>
+              )}
 
             {/* Step 4: Agreed Locked Rate & Dates */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -862,24 +961,24 @@ export default function AssignmentsPage() {
               </div>
             </div>
 
-            {/* Modal Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setIsDeployModalOpen(false)}
-                disabled={deployMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={deployMutation.isPending}
-                className="bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white shadow-sm flex items-center gap-2"
-              >
-                {deployMutation.isPending ? 'Deploying...' : 'Deploy to Site'}
-              </Button>
-            </div>
+              {/* Modal Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsDeployModalOpen(false)}
+                  disabled={deployMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={deployMutation.isPending || (!!deployEmployeeId && activeEmployeeIds.has(deployEmployeeId)) || !deploySiteJobId}
+                  className="bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white shadow-sm flex items-center gap-2 disabled:opacity-50"
+                >
+                  {deployMutation.isPending ? 'Deploying...' : 'Deploy to Site'}
+                </Button>
+              </div>
           </form>
         </Modal>
 
@@ -937,9 +1036,9 @@ export default function AssignmentsPage() {
                     className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7]"
                   >
                     <option value="">-- Choose destination site --</option>
-                    {sites.map((s) => (
+                    {realSites.map((s) => (
                       <option key={s.id} value={s.id}>
-                        {s.name} ({s.address?.city || 'UK'})
+                        {s.name} ({s.code || s.address?.city || 'UK'})
                       </option>
                     ))}
                   </select>
@@ -952,7 +1051,7 @@ export default function AssignmentsPage() {
                   <select
                     value={transferSiteJobId}
                     onChange={(e) => handleTransferSiteJobChange(e.target.value)}
-                    disabled={!transferSiteId || isLoadingTransferJobs}
+                    disabled={!transferSiteId || isLoadingTransferJobs || transferSiteJobs.length === 0}
                     required
                     className="w-full text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7] disabled:bg-slate-50 disabled:text-slate-400"
                   >
@@ -973,6 +1072,28 @@ export default function AssignmentsPage() {
                   </select>
                 </div>
               </div>
+
+              {transferSiteId && !isLoadingTransferJobs && transferSiteJobs.length === 0 && (
+                <div className="p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs space-y-1.5">
+                  <div className="flex items-start gap-2 text-amber-900 font-semibold">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <span>No active job roles configured for destination site</span>
+                  </div>
+                  <p className="text-amber-700 text-[11px]">
+                    Configure security roles and hourly pay rates in the Sites &amp; Rates module to transfer staff to this location.
+                  </p>
+                  <div className="pt-1">
+                    <Link
+                      href="/sites"
+                      target="_blank"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                    >
+                      <span>Configure Rates in Sites</span>
+                      <ArrowUpRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               {/* Effective Transfer Date & New Rate */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1048,8 +1169,8 @@ export default function AssignmentsPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={transferMutation.isPending}
-                  className="bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white shadow-sm flex items-center gap-2"
+                  disabled={transferMutation.isPending || !transferSiteJobId}
+                  className="bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white shadow-sm flex items-center gap-2 disabled:opacity-50"
                 >
                   {transferMutation.isPending ? 'Processing Transfer...' : 'Execute Atomic Transfer'}
                 </Button>

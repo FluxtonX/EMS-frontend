@@ -19,6 +19,7 @@ import {
   Download,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { EmptyState } from '@/components/ui/EmptyState';
 import {
   clientsApi,
   Client,
@@ -390,8 +391,21 @@ export default function ClientsPage() {
                 <tbody className="divide-y divide-gray-100">
                   {invoices.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="px-5 py-8 text-center text-gray-400">
-                        No invoices found. Click "Create Invoice" above to issue an invoice.
+                      <td colSpan={9} className="p-8">
+                        <EmptyState
+                          icon={<ReceiptText className="w-8 h-8 text-[#6C5CE7]" />}
+                          title="No Invoices Issued Yet"
+                          description="Generate client invoices from recorded attendance and agreed hourly contract rates."
+                          action={
+                            <button
+                              onClick={() => setIsInvoiceModalOpen(true)}
+                              className="px-4 py-2 bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white font-semibold text-xs rounded-xl transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] flex items-center gap-1.5"
+                            >
+                              <Plus className="w-4 h-4" />
+                              Create First Invoice
+                            </button>
+                          }
+                        />
                       </td>
                     </tr>
                   ) : (
@@ -468,7 +482,25 @@ export default function ClientsPage() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-5">
+            {clients.length === 0 ? (
+              <div className="p-8">
+                <EmptyState
+                  icon={<Building2 className="w-8 h-8 text-[#6C5CE7]" />}
+                  title="No Client Accounts Found"
+                  description="Register enterprise client accounts, SLA terms, billing contacts, and payment cycles."
+                  action={
+                    <button
+                      onClick={() => setIsClientModalOpen(true)}
+                      className="px-4 py-2 bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white font-semibold text-xs rounded-xl transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] flex items-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Register First Client
+                    </button>
+                  }
+                />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 p-5">
               {clients.map(cli => (
                 <div
                   key={cli.id}
@@ -532,6 +564,7 @@ export default function ClientsPage() {
                 </div>
               ))}
             </div>
+          )}
           </div>
         ) : activeTab === 'contracts' ? (
           /* --- Contracts Tab --- */
@@ -557,7 +590,18 @@ export default function ClientsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {contracts.map(con => (
+                  {contracts.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-8">
+                        <EmptyState
+                          icon={<Files className="w-8 h-8 text-[#6C5CE7]" />}
+                          title="No Guarding Contracts Active"
+                          description="Attach master service agreements, billing cycles, and overtime multipliers to client sites."
+                        />
+                      </td>
+                    </tr>
+                  ) : (
+                    contracts.map(con => (
                     <tr key={con.id} className="hover:bg-purple-50/40 transition-colors">
                       <td className="px-5 py-4 font-bold text-[#6C5CE7]">{con.code}</td>
                       <td className="px-5 py-4 font-semibold text-gray-900">{con.name}</td>
@@ -575,7 +619,7 @@ export default function ClientsPage() {
                         </span>
                       </td>
                     </tr>
-                  ))}
+                  )))}
                 </tbody>
               </table>
             </div>

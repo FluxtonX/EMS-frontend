@@ -25,7 +25,13 @@ import {
   EmptyState,
 } from '@/components/ui';
 import { toast } from '@/lib/toastStore';
-import { fetchSiteJobs, addSiteJobApi, updateSiteJobApi } from '@/lib/api/sites';
+import {
+  fetchSiteJobs,
+  addSiteJobApi,
+  updateSiteJobApi,
+  deleteSiteJobApi,
+  fetchSiteJobsMatrixApi,
+} from '@/lib/api/sites';
 import { JobType, Site, SiteJob } from '@/types/site';
 import {
   Briefcase,
@@ -41,6 +47,7 @@ import {
   Shield,
   Edit2,
   DollarSign,
+  Trash2,
 } from 'lucide-react';
 
 export default function JobRolesAndRatesPage() {
@@ -91,28 +98,12 @@ export default function JobRolesAndRatesPage() {
     status: 'active' as 'active' | 'inactive',
   });
 
-  // Fetch all site jobs across all sites
+  // Fetch all site jobs via single bulk matrix endpoint (eliminates client-side N+1 query loop)
   const { data: allSiteJobs = [], isLoading: isSiteJobsMatrixLoading, refetch: refetchSiteJobs } = useQuery({
-    queryKey: ['all-site-jobs-matrix', sites.map((s) => s.id).join(',')],
+    queryKey: ['all-site-jobs-matrix'],
     queryFn: async () => {
-      if (sites.length === 0) return [];
-      const results = await Promise.all(
-        sites.map(async (site) => {
-          try {
-            const jobs = await fetchSiteJobs(site.id);
-            return jobs.map((j) => ({
-              ...j,
-              siteName: site.name,
-              siteCode: site.code,
-            }));
-          } catch {
-            return [];
-          }
-        })
-      );
-      return results.flat();
+      return fetchSiteJobsMatrixApi();
     },
-    enabled: sites.length > 0,
   });
 
   // Mutation: Create Job Role in Company Catalog
@@ -184,6 +175,22 @@ export default function JobRolesAndRatesPage() {
     },
     onError: (err: any) => {
       toast.error(err.message || 'Failed to update site rates.');
+    },
+  });
+
+  // Mutation: Delete Site Job Rate
+  const deleteSiteJobMutation = useMutation({
+    mutationFn: async (payload: { siteId: string; siteJobId: string }) => {
+      return deleteSiteJobApi(payload.siteId, payload.siteJobId);
+    },
+    onSuccess: () => {
+      toast.success('Site rate configuration removed successfully.');
+      setIsEditSiteJobOpen(false);
+      setSelectedSiteJobForEdit(null);
+      refetchSiteJobs();
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to remove site rate.');
     },
   });
 
@@ -534,23 +541,40 @@ export default function JobRolesAndRatesPage() {
                           )}
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => {
-                              setSelectedSiteJobForEdit(sj);
-                              setEditSiteJobForm({
-                                defaultPayRate: sj.defaultPayRate.toString(),
-                                billingRate: sj.billingRate.toString(),
-                                status: sj.status || 'active',
-                              });
-                              setIsEditSiteJobOpen(true);
-                            }}
-                          >
-                            <Edit2 className="h-3 w-3" />
-                            Edit
-                          </Button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => {
+                                setSelectedSiteJobForEdit(sj);
+                                setEditSiteJobForm({
+                                  defaultPayRate: sj.defaultPayRate.toString(),
+                                  billingRate: sj.billingRate.toString(),
+                                  status: sj.status || 'active',
+                                });
+                                setIsEditSiteJobOpen(true);
+                              }}
+                            >
+                              <Edit2 className="h-3 w-3" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => {
+                                if (confirm(`Remove rate configuration for ${sj.jobType?.name || 'role'} at ${sj.siteName}?`)) {
+                                  deleteSiteJobMutation.mutate({
+                                    siteId: sj.siteId,
+                                    siteJobId: sj.id,
+                                  });
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -736,27 +760,45 @@ export default function JobRolesAndRatesPage() {
           title={`Edit Rates — ${selectedSiteJobForEdit?.jobType?.name || 'Site Role'}`}
           description={`Update default wage or billing contract for ${selectedSiteJobForEdit?.siteId}.`}
           footer={
-            <div className="flex items-center justify-end gap-2 w-full">
-              <Button variant="outline" size="sm" onClick={() => setIsEditSiteJobOpen(false)}>
-                Cancel
-              </Button>
+            <div className="flex items-center justify-between gap-2 w-full">
               <Button
-                variant="primary"
+                variant="destructive"
                 size="sm"
-                isLoading={updateSiteJobMutation.isPending}
+                isLoading={deleteSiteJobMutation.isPending}
                 onClick={() => {
                   if (!selectedSiteJobForEdit) return;
-                  updateSiteJobMutation.mutate({
-                    siteId: selectedSiteJobForEdit.siteId,
-                    siteJobId: selectedSiteJobForEdit.id,
-                    defaultPayRate: parseFloat(editSiteJobForm.defaultPayRate),
-                    billingRate: parseFloat(editSiteJobForm.billingRate),
-                    status: editSiteJobForm.status,
-                  });
+                  if (confirm('Are you sure you want to remove this site rate configuration?')) {
+                    deleteSiteJobMutation.mutate({
+                      siteId: selectedSiteJobForEdit.siteId,
+                      siteJobId: selectedSiteJobForEdit.id,
+                    });
+                  }
                 }}
               >
-                Update Rates
+                Delete Rate
               </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setIsEditSiteJobOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  isLoading={updateSiteJobMutation.isPending}
+                  onClick={() => {
+                    if (!selectedSiteJobForEdit) return;
+                    updateSiteJobMutation.mutate({
+                      siteId: selectedSiteJobForEdit.siteId,
+                      siteJobId: selectedSiteJobForEdit.id,
+                      defaultPayRate: parseFloat(editSiteJobForm.defaultPayRate),
+                      billingRate: parseFloat(editSiteJobForm.billingRate),
+                      status: editSiteJobForm.status,
+                    });
+                  }}
+                >
+                  Update Rates
+                </Button>
+              </div>
             </div>
           }
         >

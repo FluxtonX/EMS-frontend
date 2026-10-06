@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Shield, Lock, User, Phone, CheckCircle, AlertCircle, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button, Input } from '@/components/ui';
+import { syncAuthCookies } from '@/lib/auth/AuthContext';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -97,6 +98,7 @@ function ActivateInviteContent() {
       // Store session in localStorage for AuthContext
       if (typeof window !== 'undefined') {
         localStorage.setItem('workforce_auth_session', JSON.stringify(authData));
+        syncAuthCookies(authData);
       }
 
       setIsSuccess(true);

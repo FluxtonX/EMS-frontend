@@ -33,8 +33,8 @@ import {
   deleteLicenceApi,
 } from '@/lib/api/licences';
 
-const STALE_TIME_MS = 5 * 60 * 1000; // 5 minutes freshness window
-const ERROR_COOLDOWN_MS = 30 * 1000; // 30 seconds cooldown on API error to prevent spamming
+const STALE_TIME_MS = 30 * 1000; // 30 seconds freshness window
+const ERROR_COOLDOWN_MS = 10 * 1000; // 10 seconds cooldown on API error to prevent spamming
 
 function calculateComplianceSummary(licences: EmployeeLicence[]): ComplianceSummary {
   const total = licences.length;
@@ -178,15 +178,14 @@ export const useWorkforceStore = create<WorkforceState>()(
 
         try {
           const res = await apiFetchEmployees({ page: 1, limit: 100 });
-          if (res && Array.isArray(res.items) && res.items.length > 0) {
+          if (res && Array.isArray(res.items)) {
             set({
               employees: res.items,
-              totalEmployees: res.total || res.items.length,
+              totalEmployees: res.total ?? res.items.length,
               hasRealEmployees: true,
               employeesLastFetched: Date.now(),
             });
           } else {
-            // Keep existing employees (mock or persisted), update timestamp
             set({ employeesLastFetched: Date.now() });
           }
         } catch {
@@ -198,59 +197,46 @@ export const useWorkforceStore = create<WorkforceState>()(
       },
 
       createEmployee: async (payload: any) => {
-        try {
-          const created = await createEmployeeApi(payload);
-          set((state) => {
-            const nextEmployees = [created, ...state.employees];
-            return {
-              employees: nextEmployees,
-              totalEmployees: state.totalEmployees + 1,
-              hasRealEmployees: true,
-            };
-          });
-          return created;
-        } catch (err) {
-          // Optimistic fallback for client-side demo or network drop
-          const fallbackEmployee: Employee = {
-            id: `emp-local-${Date.now()}`,
-            companyId: 'company-demo-1',
-            employeeNumber: `EMP-${Math.floor(1000 + Math.random() * 9000)}`,
-            firstName: payload.firstName || 'New',
-            lastName: payload.lastName || 'Officer',
-            email: payload.email || 'officer@apexsecurity.co.uk',
-            phone: payload.phone || '+44 7700 900000',
-            dateOfBirth: payload.dateOfBirth || '1990-01-01',
-            address: {
-              line1: payload.line1 || payload.addressLine1 || 'High Street',
-              line2: payload.line2 || '',
-              city: payload.city || 'London',
-              postalCode: payload.postalCode || payload.postcode || 'E1 6AN',
-              country: payload.country || 'United Kingdom',
-            },
-            emergencyContact: {
-              name: payload.emergencyName || payload.emergencyContactName || 'Next of Kin',
-              phone: payload.emergencyPhone || payload.emergencyContactPhone || '+44 7700 900001',
-              relationship: payload.emergencyRelationship || payload.emergencyContactRelation || 'Spouse',
-            },
-            employmentStatus: payload.employmentStatus || 'active',
-            employmentStartDate: payload.employmentStartDate || payload.startDate || new Date().toISOString().split('T')[0],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-
-          set((state) => ({
-            employees: [fallbackEmployee, ...state.employees],
+        const created = await createEmployeeApi(payload);
+        set((state) => {
+          const nextEmployees = [created, ...state.employees];
+          return {
+            employees: nextEmployees,
             totalEmployees: state.totalEmployees + 1,
-          }));
-          return fallbackEmployee;
-        }
+            hasRealEmployees: true,
+          };
+        });
+        return created;
       },
 
       onboardEmployee: async (payload: any) => {
         const res = await onboardEmployeeApi(payload);
-        const created = res.employee || res;
+        const rawEmp = res.employee || res;
+        const enriched: Employee = {
+          ...rawEmp,
+          currentAssignment: res.assignment
+            ? {
+                id: res.assignment.id,
+                siteName: res.assignment.siteJob?.site?.name || 'Assigned Site',
+                siteCode: res.assignment.siteJob?.site?.code || '',
+                role: res.assignment.siteJob?.jobType?.name || 'Security Officer',
+                payRate: res.assignment.payRate,
+                startDate: res.assignment.startDate,
+              }
+            : rawEmp.currentAssignment || null,
+          licence: res.licence
+            ? {
+                id: res.licence.id,
+                licenceType: res.licence.licenceType,
+                licenceNumber: res.licence.licenceNumber,
+                expiryDate: res.licence.expiryDate,
+                status: res.licence.status,
+              }
+            : rawEmp.licence || null,
+        };
+
         set((state) => ({
-          employees: [created, ...state.employees],
+          employees: [enriched, ...state.employees],
           totalEmployees: state.totalEmployees + 1,
           hasRealEmployees: true,
         }));
@@ -268,20 +254,11 @@ export const useWorkforceStore = create<WorkforceState>()(
       },
 
       updateEmployee: async (id: string, updates: any) => {
-        try {
-          const updated = await updateEmployeeApi(id, updates);
-          set((state) => ({
-            employees: state.employees.map((e) => (e.id === id ? { ...e, ...updated } : e)),
-          }));
-          return updated;
-        } catch {
-          // Local state update
-          set((state) => ({
-            employees: state.employees.map((e) => (e.id === id ? { ...e, ...updates } : e)),
-          }));
-          const current = get().employees.find((e) => e.id === id);
-          return current!;
-        }
+        const updated = await updateEmployeeApi(id, updates);
+        set((state) => ({
+          employees: state.employees.map((e) => (e.id === id ? { ...e, ...updated } : e)),
+        }));
+        return updated;
       },
 
       /* -------------------------------------------------------------
@@ -306,7 +283,7 @@ export const useWorkforceStore = create<WorkforceState>()(
 
         try {
           const res = await apiFetchSites();
-          if (Array.isArray(res) && res.length > 0) {
+          if (Array.isArray(res)) {
             set({
               sites: res,
               hasRealSites: true,
@@ -323,39 +300,12 @@ export const useWorkforceStore = create<WorkforceState>()(
       },
 
       createSite: async (payload: any) => {
-        try {
-          const created = await createSiteApi(payload);
-          set((state) => ({
-            sites: [created, ...state.sites],
-            hasRealSites: true,
-          }));
-          return created;
-        } catch {
-          const fallbackSite: Site = {
-            id: `site-local-${Date.now()}`,
-            companyId: 'company-demo-1',
-            name: payload.name || 'New Deployment Site',
-            code: payload.code || `SITE-${Math.floor(100 + Math.random() * 900)}`,
-            address: payload.address || {
-              line1: '100 Security Way',
-              city: 'London',
-              postalCode: 'EC1A 1BB',
-              country: 'United Kingdom',
-            },
-            contactName: payload.contactName || 'Duty Lead',
-            contactPhone: payload.contactPhone || '+44 20 7946 0000',
-            contactEmail: payload.contactEmail || 'lead@site.co.uk',
-            status: 'active',
-            configuredJobsCount: 0,
-            jobs: [],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          set((state) => ({
-            sites: [fallbackSite, ...state.sites],
-          }));
-          return fallbackSite;
-        }
+        const created = await createSiteApi(payload);
+        set((state) => ({
+          sites: [created, ...state.sites],
+          hasRealSites: true,
+        }));
+        return created;
       },
 
       fetchJobTypes: async (force = false) => {
@@ -371,7 +321,7 @@ export const useWorkforceStore = create<WorkforceState>()(
         set({ isJobTypesLoading: true });
         try {
           const res = await apiFetchJobTypes();
-          if (Array.isArray(res) && res.length > 0) {
+          if (Array.isArray(res)) {
             set({ jobTypes: res, jobTypesLastFetched: Date.now() });
           } else {
             set({ jobTypesLastFetched: Date.now() });
@@ -384,101 +334,39 @@ export const useWorkforceStore = create<WorkforceState>()(
       },
 
       createJobType: async (payload: any) => {
-        try {
-          const created = await createJobTypeApi(payload);
-          set((state) => ({ jobTypes: [...state.jobTypes, created] }));
-          return created;
-        } catch {
-          const fallback: JobType = {
-            id: `job-type-local-${Date.now()}`,
-            companyId: 'company-demo-1',
-            name: payload.name,
-            description: payload.description || '',
-            isActive: true,
-            createdAt: new Date().toISOString(),
-          };
-          set((state) => ({ jobTypes: [...state.jobTypes, fallback] }));
-          return fallback;
-        }
+        const created = await createJobTypeApi(payload);
+        set((state) => ({ jobTypes: [...state.jobTypes, created] }));
+        return created;
       },
 
       addSiteJob: async (siteId: string, data: any) => {
-        try {
-          const created = await addSiteJobApi(siteId, data);
-          set((state) => ({
-            sites: state.sites.map((s) => {
-              if (s.id !== siteId) return s;
-              const nextJobs = [...(s.jobs || []), created];
-              return {
-                ...s,
-                jobs: nextJobs,
-                configuredJobsCount: nextJobs.length,
-              };
-            }),
-          }));
-          return created;
-        } catch {
-          const jobType = get().jobTypes.find((j) => j.id === data.jobTypeId);
-          const fallback: SiteJob = {
-            id: `site-job-local-${Date.now()}`,
-            companyId: 'company-demo-1',
-            siteId,
-            jobTypeId: data.jobTypeId,
-            defaultPayRate: Number(data.defaultPayRate) || 14.5,
-            billingRate: Number(data.billingRate) || 22.0,
-            currency: data.currency || 'GBP',
-            status: 'active',
-            createdAt: new Date().toISOString(),
-            jobType: jobType || {
-              id: data.jobTypeId,
-              companyId: 'company-demo-1',
-              name: 'Security Officer',
-              isActive: true,
-              createdAt: new Date().toISOString(),
-            },
-          };
-          set((state) => ({
-            sites: state.sites.map((s) => {
-              if (s.id !== siteId) return s;
-              const nextJobs = [...(s.jobs || []), fallback];
-              return {
-                ...s,
-                jobs: nextJobs,
-                configuredJobsCount: nextJobs.length,
-              };
-            }),
-          }));
-          return fallback;
-        }
+        const created = await addSiteJobApi(siteId, data);
+        set((state) => ({
+          sites: state.sites.map((s) => {
+            if (s.id !== siteId) return s;
+            const nextJobs = [...(s.jobs || []), created];
+            return {
+              ...s,
+              jobs: nextJobs,
+              configuredJobsCount: (s.configuredJobsCount ?? 0) + 1,
+            };
+          }),
+        }));
+        return created;
       },
 
       updateSiteJob: async (siteId: string, siteJobId: string, data: any) => {
-        try {
-          const updated = await updateSiteJobApi(siteId, siteJobId, data);
-          set((state) => ({
-            sites: state.sites.map((s) => {
-              if (s.id !== siteId) return s;
-              return {
-                ...s,
-                jobs: (s.jobs || []).map((j) => (j.id === siteJobId ? { ...j, ...updated } : j)),
-              };
-            }),
-          }));
-          return updated;
-        } catch {
-          set((state) => ({
-            sites: state.sites.map((s) => {
-              if (s.id !== siteId) return s;
-              return {
-                ...s,
-                jobs: (s.jobs || []).map((j) => (j.id === siteJobId ? { ...j, ...data } : j)),
-              };
-            }),
-          }));
-          const site = get().sites.find((s) => s.id === siteId);
-          const job = site?.jobs?.find((j) => j.id === siteJobId);
-          return job!;
-        }
+        const updated = await updateSiteJobApi(siteId, siteJobId, data);
+        set((state) => ({
+          sites: state.sites.map((s) => {
+            if (s.id !== siteId) return s;
+            return {
+              ...s,
+              jobs: (s.jobs || []).map((j) => (j.id === siteJobId ? { ...j, ...updated } : j)),
+            };
+          }),
+        }));
+        return updated;
       },
 
       /* -------------------------------------------------------------
@@ -534,50 +422,20 @@ export const useWorkforceStore = create<WorkforceState>()(
       },
 
       createLicence: async (employeeId: string, payload: any) => {
-        try {
-          const created = await createEmployeeLicenceApi(employeeId, payload);
-          set((state) => {
-            const next = [created, ...state.licences];
-            return {
-              licences: next,
-              complianceSummary: calculateComplianceSummary(next),
-              hasRealLicences: true,
-            };
-          });
-          return created;
-        } catch {
-          const emp = get().employees.find((e) => e.id === employeeId);
-          const fallback: EmployeeLicence = {
-            id: `lic-local-${Date.now()}`,
-            companyId: 'company-demo-1',
-            employeeId,
-            licenceType: payload.licenceType,
-            licenceNumber: payload.licenceNumber,
-            expiryDate: payload.expiryDate,
-            status: 'pending_verification',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            employee: emp,
+        const created = await createEmployeeLicenceApi(employeeId, payload);
+        set((state) => {
+          const next = [created, ...state.licences];
+          return {
+            licences: next,
+            complianceSummary: calculateComplianceSummary(next),
+            hasRealLicences: true,
           };
-
-          set((state) => {
-            const next = [fallback, ...state.licences];
-            return {
-              licences: next,
-              complianceSummary: calculateComplianceSummary(next),
-            };
-          });
-          return fallback;
-        }
+        });
+        return created;
       },
 
       verifyLicence: async (id: string, status: LicenceStatus) => {
-        try {
-          await verifyLicenceApi(id, status);
-        } catch {
-          // proceed with local state update
-        }
-
+        await verifyLicenceApi(id, status);
         set((state) => {
           const next = state.licences.map((lic) =>
             lic.id === id
@@ -597,12 +455,7 @@ export const useWorkforceStore = create<WorkforceState>()(
       },
 
       deleteLicence: async (id: string) => {
-        try {
-          await deleteLicenceApi(id);
-        } catch {
-          // ignore
-        }
-
+        await deleteLicenceApi(id);
         set((state) => {
           const next = state.licences.filter((lic) => lic.id !== id);
           return {

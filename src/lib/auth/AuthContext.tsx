@@ -22,16 +22,31 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 const SESSION_STORAGE_KEY = 'workforce_auth_session';
 
+export function syncAuthCookies(session: AuthSession | null) {
+  if (typeof document === 'undefined') return;
+  if (session && session.accessToken) {
+    const role = (session.company?.role || 'owner').toLowerCase();
+    document.cookie = `workforce_auth_token=${encodeURIComponent(session.accessToken)}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `workforce_auth_role=${encodeURIComponent(role)}; path=/; max-age=604800; SameSite=Lax`;
+  } else {
+    document.cookie = 'workforce_auth_token=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'workforce_auth_role=; path=/; max-age=0; SameSite=Lax';
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<AuthSession | null>(() => {
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem(SESSION_STORAGE_KEY);
         if (stored) {
-          return JSON.parse(stored);
+          const parsed = JSON.parse(stored);
+          syncAuthCookies(parsed);
+          return parsed;
         }
       } catch {
         localStorage.removeItem(SESSION_STORAGE_KEY);
+        syncAuthCookies(null);
       }
     }
     return null;
@@ -40,12 +55,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initialize isLoading to false since we loaded synchronously from localStorage
   const [isLoading, setIsLoading] = useState(false);
 
+  useEffect(() => {
+    syncAuthCookies(session);
+  }, [session]);
+
   const login = async (email: string, pass: string) => {
     setIsLoading(true);
     try {
       const authData = await loginApi({ email, password: pass });
       setSession(authData);
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(authData));
+      syncAuthCookies(authData);
       toast.success('Logged in successfully.');
     } catch (err: any) {
       toast.error(err.message || 'Login failed.');
@@ -61,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const authData = await registerApi(payload);
       setSession(authData);
       localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(authData));
+      syncAuthCookies(authData);
       toast.success('Company workspace created.');
     } catch (err: any) {
       toast.error(err.message || 'Registration failed.');
@@ -73,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setSession(null);
     localStorage.removeItem(SESSION_STORAGE_KEY);
+    syncAuthCookies(null);
     toast.info('Logged out.');
   };
 

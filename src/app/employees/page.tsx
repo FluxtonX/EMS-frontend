@@ -64,12 +64,21 @@ import {
   LayoutGrid,
   List,
   MessageSquare,
+  AlertTriangle,
+  ArrowUpRight,
+  Radio,
 } from 'lucide-react';
 import Link from 'next/link';
 import { mockEmployees } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function EmployeesPage() {
   const queryClient = useQueryClient();
+  const { session } = useAuth();
+  const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
+  const currentRole = rawRole === 'SUPERVISOR' ? 'OPERATOR' : rawRole;
+  const isOperator = currentRole === 'OPERATOR';
+
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -171,6 +180,19 @@ export default function EmployeesPage() {
     fetchSites: syncSites,
   } = useWorkforceStore();
 
+  // Authoritative real sites from server
+  const { data: querySites = [] } = useQuery({
+    queryKey: ['sites'],
+    queryFn: fetchSites,
+  });
+
+  const sitesList = React.useMemo(() => {
+    if (querySites && querySites.length > 0) return querySites;
+    return availableSites.filter((s) => !s.id.startsWith('site-demo-'));
+  }, [querySites, availableSites]);
+
+  const [siteJobsError, setSiteJobsError] = useState<string | null>(null);
+
   useEffect(() => {
     syncEmployees();
     syncSites();
@@ -182,6 +204,8 @@ export default function EmployeesPage() {
     onSuccess: (res: any) => {
       toast.success(res?.message || 'Employee onboarded successfully.');
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      queryClient.invalidateQueries({ queryKey: ['sites'] });
+      syncEmployees(true);
       setIsWizardOpen(false);
       resetWizard();
     },
@@ -236,6 +260,7 @@ export default function EmployeesPage() {
       refetchAssignments();
       refetchActiveAssignment();
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      syncEmployees(true);
       toast.success('Employee assigned to site successfully.');
       setIsAssignModalOpen(false);
       setAssignForm({
@@ -257,6 +282,7 @@ export default function EmployeesPage() {
       refetchAssignments();
       refetchActiveAssignment();
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      syncEmployees(true);
       toast.success('Employee transferred atomically with historical lockdown.');
       setIsTransferModalOpen(false);
     },
@@ -272,6 +298,7 @@ export default function EmployeesPage() {
       refetchAssignments();
       refetchActiveAssignment();
       queryClient.invalidateQueries({ queryKey: ['employees'] });
+      syncEmployees(true);
       toast.success('Assignment closed successfully.');
     },
     onError: (err: any) => {
@@ -287,9 +314,10 @@ export default function EmployeesPage() {
     }
     try {
       const jobs = await fetchSiteJobs(siteId);
-      setAssignSiteJobs(jobs.filter((j) => j.status === 'active'));
-    } catch {
+      setAssignSiteJobs((jobs || []).filter((j) => j.status === 'active'));
+    } catch (err: any) {
       setAssignSiteJobs([]);
+      toast.error(err.message || 'Failed to load site roles.');
     }
   };
 
@@ -301,9 +329,10 @@ export default function EmployeesPage() {
     }
     try {
       const jobs = await fetchSiteJobs(siteId);
-      setTransferSiteJobs(jobs.filter((j) => j.status === 'active'));
-    } catch {
+      setTransferSiteJobs((jobs || []).filter((j) => j.status === 'active'));
+    } catch (err: any) {
       setTransferSiteJobs([]);
+      toast.error(err.message || 'Failed to load site roles.');
     }
   };
 
@@ -314,6 +343,7 @@ export default function EmployeesPage() {
       assignmentSiteJobId: '',
       assignmentPayRate: '',
     }));
+    setSiteJobsError(null);
     if (!siteId) {
       setWizardSiteJobs([]);
       return;
@@ -321,7 +351,7 @@ export default function EmployeesPage() {
     setIsSiteJobsLoading(true);
     try {
       const jobs = await fetchSiteJobs(siteId);
-      const activeJobs = jobs.filter((j) => j.status === 'active');
+      const activeJobs = (jobs || []).filter((j) => j.status === 'active');
       setWizardSiteJobs(activeJobs);
       if (activeJobs.length > 0) {
         setFormData((prev) => ({
@@ -331,8 +361,10 @@ export default function EmployeesPage() {
           assignmentPayRate: activeJobs[0].defaultPayRate.toString(),
         }));
       }
-    } catch {
+    } catch (err: any) {
       setWizardSiteJobs([]);
+      setSiteJobsError(err.message || 'Failed to load site roles.');
+      toast.error(err.message || 'Failed to load site roles.');
     } finally {
       setIsSiteJobsLoading(false);
     }
@@ -350,6 +382,7 @@ export default function EmployeesPage() {
   const resetWizard = () => {
     setWizardStep(1);
     setWizardSiteJobs([]);
+    setSiteJobsError(null);
     setFormData({
       firstName: '',
       lastName: '',
@@ -613,17 +646,24 @@ export default function EmployeesPage() {
           { label: 'Employees' },
         ]}
         primaryAction={
-          <Button
-            variant="primary"
-            size="sm"
-            leftIcon={<Plus className="h-4 w-4" />}
-            onClick={() => {
-              resetWizard();
-              setIsWizardOpen(true);
-            }}
-          >
-            Add Employee
-          </Button>
+          isOperator ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200/80 text-xs font-semibold shadow-2xs">
+              <Radio className="w-3.5 h-3.5 text-amber-600" />
+              <span>Officer Directory (Read-Only)</span>
+            </div>
+          ) : (
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus className="h-4 w-4" />}
+              onClick={() => {
+                resetWizard();
+                setIsWizardOpen(true);
+              }}
+            >
+              Add Employee
+            </Button>
+          )
         }
       >
         {!hasRealEmployees && (
@@ -770,7 +810,7 @@ export default function EmployeesPage() {
                 ][Math.abs(emp.id.charCodeAt(0) || 0) % 6];
 
                 const initials = `${emp.firstName?.[0] || ''}${emp.lastName?.[0] || ''}`.toUpperCase() || 'EM';
-                const siteName = emp.currentAssignment?.siteName || (emp.id === 'emp-demo-1' ? 'Canary Wharf Tower A' : emp.id === 'emp-demo-2' ? 'Control Room A' : 'Apex Static Post');
+                const siteName = emp.currentAssignment?.siteName || (emp.id.startsWith('emp-demo-') ? (emp.id === 'emp-demo-1' ? 'Canary Wharf Tower A' : 'Control Room A') : 'Unassigned');
                 const roleName = emp.currentAssignment?.role || 'Security Officer';
 
                 return (
@@ -968,7 +1008,7 @@ export default function EmployeesPage() {
                           <MessageSquare className="h-3 w-3" />
                           Chat
                         </Link>
-                        {emp.accountStatus === 'invited' && (
+                        {!isOperator && emp.accountStatus === 'invited' && (
                           <Button
                             variant="outline"
                             size="xs"
@@ -1029,7 +1069,7 @@ export default function EmployeesPage() {
               ? 'Account & Portal Access'
               : 'Review & Confirm'
           }`}
-          description="Atomic employee creation with assignment lockdown and Brevo portal onboarding."
+          description=""
           maxWidth="lg"
           footer={
             <div className="flex items-center justify-between w-full">
@@ -1387,7 +1427,7 @@ export default function EmployeesPage() {
                         className="w-full h-9 rounded bg-white px-3 text-xs border border-[#E5E3F2] outline-none text-[#171A2B]"
                       >
                         <option value="">-- Choose a site --</option>
-                        {availableSites.map((site) => (
+                        {sitesList.map((site) => (
                           <option key={site.id} value={site.id}>
                             {site.name} ({site.code})
                           </option>
@@ -1402,10 +1442,49 @@ export default function EmployeesPage() {
                             Site Job Role *
                           </label>
                           {isSiteJobsLoading ? (
-                            <div className="text-xs text-[#687086] py-1">Loading site roles...</div>
+                            <div className="text-xs text-[#687086] py-2 flex items-center gap-2">
+                              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#6C5CE7] border-t-transparent" />
+                              <span>Loading site roles...</span>
+                            </div>
+                          ) : siteJobsError ? (
+                            <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-xs text-red-700 flex items-center justify-between">
+                              <span>{siteJobsError}</span>
+                              <button
+                                type="button"
+                                onClick={() => handleWizardSiteChange(formData.assignmentSiteId)}
+                                className="px-2 py-0.5 rounded bg-red-100 hover:bg-red-200 text-red-800 text-[11px] font-medium"
+                              >
+                                Retry
+                              </button>
+                            </div>
                           ) : wizardSiteJobs.length === 0 ? (
-                            <div className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded border border-amber-200">
-                              No active job roles configured for this site yet.
+                            <div className="p-3.5 rounded-lg border border-amber-200 bg-amber-50 space-y-2">
+                              <div className="flex items-start gap-2">
+                                <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                                <div className="text-xs">
+                                  <p className="font-semibold text-amber-900">No active job roles configured for this site yet</p>
+                                  <p className="text-amber-700 text-[11px] mt-0.5">
+                                    Configure security roles and billing rates in the Sites &amp; Rates module, or uncheck &ldquo;Assign to Client Site Now?&rdquo; above to place the employee in the unassigned pool.
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 pt-1">
+                                <Link
+                                  href="/sites"
+                                  target="_blank"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md bg-amber-600 text-white hover:bg-amber-700 transition-colors"
+                                >
+                                  <span>Configure Rates in Sites</span>
+                                  <ArrowUpRight className="h-3 w-3" />
+                                </Link>
+                                <button
+                                  type="button"
+                                  onClick={() => handleWizardSiteChange(formData.assignmentSiteId)}
+                                  className="px-2.5 py-1 text-[11px] font-medium rounded-md border border-amber-300 bg-white text-amber-800 hover:bg-amber-100 transition-colors"
+                                >
+                                  Refresh Roles
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <select
@@ -1912,39 +1991,41 @@ export default function EmployeesPage() {
                       <span className="text-xs font-bold text-[#687086] uppercase tracking-wider">
                         Assignment History ({assignments.length})
                       </span>
-                      {activeAssignment ? (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => {
-                            setTransferForm({
-                              siteId: '',
-                              newSiteJobId: '',
-                              newPayRate: '',
-                              transferDate: new Date().toISOString().split('T')[0],
-                              reason: '',
-                            });
-                            setIsTransferModalOpen(true);
-                          }}
-                          className="gap-1"
-                        >
-                          <ArrowRightLeft className="w-3 h-3" />
-                          Transfer
-                        </Button>
-                      ) : (
-                        <Button
-                          size="xs"
-                          variant="primary"
-                          onClick={() => {
-                            setSelectedSiteId('');
-                            setAssignSiteJobs([]);
-                            setIsAssignModalOpen(true);
-                          }}
-                          className="gap-1"
-                        >
-                          <Plus className="w-3 h-3" />
-                          Assign to Site
-                        </Button>
+                      {!isOperator && (
+                        activeAssignment ? (
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => {
+                              setTransferForm({
+                                siteId: '',
+                                newSiteJobId: '',
+                                newPayRate: '',
+                                transferDate: new Date().toISOString().split('T')[0],
+                                reason: '',
+                              });
+                              setIsTransferModalOpen(true);
+                            }}
+                            className="gap-1"
+                          >
+                            <ArrowRightLeft className="w-3 h-3" />
+                            Transfer
+                          </Button>
+                        ) : (
+                          <Button
+                            size="xs"
+                            variant="primary"
+                            onClick={() => {
+                              setSelectedSiteId('');
+                              setAssignSiteJobs([]);
+                              setIsAssignModalOpen(true);
+                            }}
+                            className="gap-1"
+                          >
+                            <Plus className="w-3 h-3" />
+                            Assign to Site
+                          </Button>
+                        )
                       )}
                     </div>
 
@@ -2070,7 +2151,7 @@ export default function EmployeesPage() {
                 onChange={(e) => handleSiteSelectForAssign(e.target.value)}
                 options={[
                   { value: '', label: '-- Select a Site --' },
-                  ...availableSites.map((s) => ({
+                  ...sitesList.map((s) => ({
                     value: s.id,
                     label: `${s.name} [${s.code}]`,
                   })),
@@ -2203,13 +2284,13 @@ export default function EmployeesPage() {
                   Current Assignment
                 </span>
                 <div className="font-semibold text-slate-900">
-                  {activeAssignment?.siteJob?.site.name} [{activeAssignment?.siteJob?.site.code}]
+                  {activeAssignment?.siteJob?.site?.name || 'Current Site'} [{activeAssignment?.siteJob?.site?.code || '---'}]
                 </div>
                 <div className="text-slate-600 mt-0.5">
-                  {activeAssignment?.siteJob?.jobType?.name}
+                  {activeAssignment?.siteJob?.jobType?.name || 'Security Officer'}
                 </div>
                 <div className="font-mono text-xs font-semibold text-slate-800 mt-1">
-                  £{Number(activeAssignment?.payRate).toFixed(2)}/hr
+                  £{Number(activeAssignment?.payRate || 0).toFixed(2)}/hr
                 </div>
               </div>
 
@@ -2232,8 +2313,8 @@ export default function EmployeesPage() {
                 onChange={(e) => handleSiteSelectForTransfer(e.target.value)}
                 options={[
                   { value: '', label: '-- Select Destination Site --' },
-                  ...availableSites
-                    .filter((s) => s.id !== activeAssignment?.siteJob?.site.id)
+                  ...sitesList
+                    .filter((s) => s.id !== activeAssignment?.siteJob?.site?.id)
                     .map((s) => ({
                       value: s.id,
                       label: `${s.name} [${s.code}]`,

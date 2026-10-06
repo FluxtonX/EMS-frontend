@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { useUIStore } from '@/lib/uiStore';
 import { useAuth } from '@/lib/auth/AuthContext';
-import { Menu, Shield, LogOut, LogIn, Search, MessageSquare, Plus } from 'lucide-react';
+import { Menu, Shield, LogOut, LogIn, Search, MessageSquare, Crown, Briefcase, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { NotificationBell } from './NotificationBell';
 import { useQuery } from '@tanstack/react-query';
@@ -28,6 +28,36 @@ export function Header() {
   const initials = user
     ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase() || 'OP'
     : 'OP';
+
+  const normalizedRole = (role || 'OWNER').toUpperCase().trim();
+  const portalTier = React.useMemo(() => {
+    if (normalizedRole === 'OWNER' || normalizedRole === 'ADMIN') {
+      return {
+        label: 'Owner Portal',
+        badgeClass: 'bg-purple-100 text-purple-800 border-purple-200/80 shadow-purple-500/10',
+        icon: Crown,
+      };
+    }
+    if (normalizedRole === 'MANAGER') {
+      return {
+        label: 'Operations Manager',
+        badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200/80 shadow-emerald-500/10',
+        icon: Briefcase,
+      };
+    }
+    if (normalizedRole === 'OPERATOR' || normalizedRole === 'SUPERVISOR') {
+      return {
+        label: 'Dispatch Operator',
+        badgeClass: 'bg-amber-100 text-amber-800 border-amber-200/80 shadow-amber-500/10',
+        icon: Radio,
+      };
+    }
+    return {
+      label: 'Officer Portal',
+      badgeClass: 'bg-blue-100 text-blue-800 border-blue-200/80 shadow-blue-500/10',
+      icon: Shield,
+    };
+  }, [normalizedRole]);
 
   // Live unread chat count
   const { data: unreadChatCount } = useQuery({
@@ -53,6 +83,15 @@ export function Header() {
             <Shield className="h-3.5 w-3.5 text-[#6C5CE7]" />
             <span className="font-semibold tracking-tight">{mounted && company?.name ? company.name : 'Apex Security Operations'}</span>
           </div>
+
+          {/* Dynamic Visual Portal Tier Badge */}
+          {mounted && (
+            <div className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold tracking-wide uppercase border shadow-2xs transition-all ${portalTier.badgeClass}`}>
+              <portalTier.icon className="h-3 w-3 shrink-0" />
+              <span>{portalTier.label}</span>
+            </div>
+          )}
+
           <span className="hidden sm:inline-block text-xs font-medium text-[#9096A9]">•</span>
           <span suppressHydrationWarning className="hidden sm:inline-block text-xs font-medium text-[#687086]">{today}</span>
         </div>
@@ -103,7 +142,7 @@ export function Header() {
                 {user.firstName} {user.lastName}
               </p>
               <p className="text-[10px] text-[#6C5CE7] font-semibold uppercase tracking-wider">
-                {role || 'Director'}
+                {portalTier.label}
               </p>
             </div>
             <button

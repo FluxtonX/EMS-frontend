@@ -15,7 +15,7 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-const DEFAULT_TTL_MS = 5 * 60 * 1000; // 5 minutes default freshness
+const DEFAULT_TTL_MS = 30 * 1000; // 30 seconds default freshness for operational workforce data
 const SESSION_CACHE_PREFIX = 'workforce_cache_';
 
 class ApiCacheService {

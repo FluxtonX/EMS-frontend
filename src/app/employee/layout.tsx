@@ -43,6 +43,8 @@ export default function EmployeePortalLayout({
     try {
       localStorage.removeItem('workforce_auth_session');
       localStorage.removeItem('workforce_user');
+      document.cookie = 'workforce_auth_token=; path=/; max-age=0; SameSite=Lax';
+      document.cookie = 'workforce_auth_role=; path=/; max-age=0; SameSite=Lax';
     } catch {
       // ignore
     }
