@@ -92,6 +92,7 @@ export default function TeamPage() {
 
   // Status Action Loading
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [selectedViewMember, setSelectedViewMember] = useState<TeamMember | null>(null);
 
   const isOwner = (userRole || '').toUpperCase() === 'OWNER' || (userRole || '').toUpperCase() === 'ADMIN';
 
@@ -473,7 +474,7 @@ export default function TeamPage() {
                       <th className="py-3 px-4">Role</th>
                       <th className="py-3 px-4">Status</th>
                       <th className="py-3 px-4">Joined Date</th>
-                      {mounted && isOwner && <th className="py-3 px-4 text-right">Actions</th>}
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E5E3F2]">
@@ -516,9 +517,17 @@ export default function TeamPage() {
                               year: 'numeric',
                             })}
                           </td>
-                          {mounted && isOwner && (
-                            <td className="py-3 px-4 text-right">
-                              {!isMemberOwner ? (
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="outline"
+                                size="xs"
+                                leftIcon={<Eye className="h-3.5 w-3.5 text-slate-500" />}
+                                onClick={() => setSelectedViewMember(member)}
+                              >
+                                View
+                              </Button>
+                              {mounted && isOwner && !isMemberOwner && (
                                 <Button
                                   variant="outline"
                                   size="xs"
@@ -527,11 +536,9 @@ export default function TeamPage() {
                                 >
                                   {member.status === 'active' ? 'Suspend' : 'Reactivate'}
                                 </Button>
-                              ) : (
-                                <span className="text-[11px] text-gray-400 italic">Owner</span>
                               )}
-                            </td>
-                          )}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -938,6 +945,85 @@ export default function TeamPage() {
             </div>
           )}
         </Modal>
+
+        {/* View Team Member Profile Modal */}
+        {selectedViewMember && (
+          <Modal
+            isOpen={!!selectedViewMember}
+            onClose={() => setSelectedViewMember(null)}
+            title="Team Member Profile"
+          >
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EDE9FE] text-[#6C5CE7] font-bold text-lg">
+                  {selectedViewMember.name.substring(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-base font-bold text-slate-900">{selectedViewMember.name}</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#EDE9FE] text-[#6C5CE7]">
+                      {selectedViewMember.role === 'Supervisor' ? 'Operator' : selectedViewMember.role}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                        selectedViewMember.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-red-50 text-red-600'
+                      }`}
+                    >
+                      {selectedViewMember.status === 'active' ? 'Active' : 'Suspended'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2.5 text-xs text-slate-700">
+                <div className="flex items-center justify-between p-3 bg-white border border-slate-200/80 rounded-xl">
+                  <span className="text-slate-500 flex items-center gap-1.5"><Mail className="h-3.5 w-3.5 text-slate-400" /> Email:</span>
+                  <span className="font-semibold text-slate-900">{selectedViewMember.email}</span>
+                </div>
+                {selectedViewMember.phone && (
+                  <div className="flex items-center justify-between p-3 bg-white border border-slate-200/80 rounded-xl">
+                    <span className="text-slate-500 flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-slate-400" /> Phone:</span>
+                    <span className="font-semibold text-slate-900">{selectedViewMember.phone}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between p-3 bg-white border border-slate-200/80 rounded-xl">
+                  <span className="text-slate-500 flex items-center gap-1.5"><Shield className="h-3.5 w-3.5 text-slate-400" /> Access Level:</span>
+                  <span className="font-semibold text-slate-900">Internal Management ({selectedViewMember.role})</span>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-white border border-slate-200/80 rounded-xl">
+                  <span className="text-slate-500 flex items-center gap-1.5"><Clock className="h-3.5 w-3.5 text-slate-400" /> Joined Date:</span>
+                  <span className="font-semibold text-slate-900">
+                    {new Date(selectedViewMember.joinedAt).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-200">
+                <Button variant="outline" size="sm" onClick={() => setSelectedViewMember(null)}>
+                  Close
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-[#6C5CE7] text-white"
+                  onClick={() => {
+                    const mId = selectedViewMember.id;
+                    setSelectedViewMember(null);
+                    window.location.href = `/chat?employeeId=${mId}`;
+                  }}
+                >
+                  Message Team Member
+                </Button>
+              </div>
+            </div>
+          </Modal>
+        )}
       </PageContainer>
     </AppShell>
   );

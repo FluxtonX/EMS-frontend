@@ -22,7 +22,6 @@ import {
   Lock,
   UserCheck,
   ChevronRight,
-  Sparkles,
 } from 'lucide-react';
 import { Button, Badge } from '@/components/ui';
 import { toast } from '@/lib/toastStore';

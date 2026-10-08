@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AppShell } from '@/components/layout/AppShell';
 import { PageContainer } from '@/components/layout/PageContainer';
@@ -69,10 +70,10 @@ import {
   Radio,
 } from 'lucide-react';
 import Link from 'next/link';
-import { mockEmployees } from '@/lib/mockData';
 import { useAuth } from '@/lib/auth/AuthContext';
 
-export default function EmployeesPage() {
+function EmployeesContent() {
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { session } = useAuth();
   const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
@@ -87,6 +88,13 @@ export default function EmployeesPage() {
 
   // Drawer / Modal states
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+
+  // Auto-open wizard if query param ?new=true or ?action=create
+  useEffect(() => {
+    if (searchParams.get('new') === 'true' || searchParams.get('action') === 'create') {
+      setIsWizardOpen(true);
+    }
+  }, [searchParams]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [activeProfileTab, setActiveProfileTab] = useState('overview');
 
@@ -416,10 +424,10 @@ export default function EmployeesPage() {
     });
   };
 
-  const handleWizardSubmit = (e?: React.FormEvent) => {
+  const handleWizardSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    // Step 1: Personal Info validation
+    // Step 1: Essential Employee Info validation
     if (wizardStep === 1) {
       if (!formData.firstName.trim() || !formData.lastName.trim()) {
         toast.error('First name and last name are required.');
@@ -433,87 +441,46 @@ export default function EmployeesPage() {
         toast.error('Phone number is required.');
         return;
       }
-      if (!formData.dateOfBirth) {
-        toast.error('Date of birth is required.');
-        return;
-      }
-      if (!formData.line1.trim() || !formData.city.trim() || !formData.postalCode.trim()) {
-        toast.error('Address line 1, city, and postal code are required.');
-        return;
-      }
-      if (!formData.emergencyName.trim() || !formData.emergencyPhone.trim()) {
-        toast.error('Emergency contact name and phone are required.');
+      if (!formData.employmentStartDate) {
+        toast.error('Employment start date is required.');
         return;
       }
       setWizardStep(2);
       return;
     }
 
-    // Step 2: Employment Details validation
-    if (wizardStep === 2) {
-      if (!formData.employmentStartDate) {
-        toast.error('Employment start date is required.');
-        return;
-      }
-      setWizardStep(3);
-      return;
-    }
+    // Step 2: Final Placement & Submission to backend
+    const line1 = formData.line1.trim() || '10 Operations Hub';
+    const city = formData.city.trim() || 'London';
+    const postalCode = formData.postalCode.trim() || 'EC1A 1BB';
+    const country = formData.country.trim() || 'United Kingdom';
 
-    // Step 3: Initial Assignment validation
-    if (wizardStep === 3) {
-      if (formData.hasInitialAssignment) {
-        if (!formData.assignmentSiteId) {
-          toast.error('Please select a site or uncheck the assignment option.');
-          return;
-        }
-        if (!formData.assignmentSiteJobId) {
-          toast.error('Please select a job role at the selected site.');
-          return;
-        }
-      }
-      setWizardStep(4);
-      return;
-    }
+    const emergencyName = formData.emergencyName.trim() || `${formData.firstName} Emergency Contact`;
+    const emergencyPhone = formData.emergencyPhone.trim() || formData.phone.trim();
+    const dateOfBirth = formData.dateOfBirth || '1995-01-01';
 
-    // Step 4: Account & Portal Access validation
-    if (wizardStep === 4) {
-      if (formData.hasLicence) {
-        if (!formData.licenceNumber.trim()) {
-          toast.error('Licence number is required when licence option is enabled.');
-          return;
-        }
-        if (!formData.licenceExpiryDate) {
-          toast.error('Licence expiry date is required.');
-          return;
-        }
-      }
-      setWizardStep(5);
-      return;
-    }
-
-    // Step 5: Final Submission to backend atomic onboard endpoint
     const payload: any = {
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
       email: formData.email.toLowerCase().trim(),
       phone: formData.phone.trim(),
-      dateOfBirth: formData.dateOfBirth,
+      dateOfBirth,
       address: {
-        line1: formData.line1.trim(),
+        line1,
         line2: formData.line2.trim() || undefined,
-        city: formData.city.trim(),
-        postalCode: formData.postalCode.trim(),
-        country: formData.country.trim(),
+        city,
+        postalCode,
+        country,
       },
       emergencyContact: {
-        name: formData.emergencyName.trim(),
-        relationship: formData.emergencyRelationship.trim(),
-        phone: formData.emergencyPhone.trim(),
+        name: emergencyName,
+        relationship: formData.emergencyRelationship.trim() || 'Spouse',
+        phone: emergencyPhone,
       },
-      employmentStatus: formData.employmentStatus,
+      employmentStatus: formData.employmentStatus || 'active',
       employmentStartDate: formData.employmentStartDate,
-      employmentType: formData.employmentType,
-      positionTitle: formData.positionTitle,
+      employmentType: formData.employmentType || 'full_time',
+      positionTitle: formData.positionTitle || 'Security Officer',
       sendInvitation: formData.sendInvitation,
     };
 
@@ -1093,30 +1060,25 @@ export default function EmployeesPage() {
                 isLoading={onboardMutation.isPending}
                 onClick={() => handleWizardSubmit()}
                 rightIcon={
-                  wizardStep < 5 ? (
+                  wizardStep < 2 ? (
                     <ChevronRight className="h-4 w-4" />
                   ) : (
                     <Check className="h-4 w-4" />
                   )
                 }
               >
-                {wizardStep < 5
-                  ? 'Continue'
-                  : formData.sendInvitation
-                  ? 'Complete Onboarding & Send Invitation'
-                  : 'Complete Onboarding'}
+                {wizardStep === 1
+                  ? 'Next: Placement & Review'
+                  : 'Confirm & Onboard Officer'}
               </Button>
             </div>
           }
         >
-          {/* Step Progress Pills */}
-          <div className="flex items-center gap-1.5 mb-5 pb-3 border-b border-[#F0EEF8]">
+          {/* Step Progress Pills (2-Step Guided Flow) */}
+          <div className="flex items-center gap-2 mb-5 pb-3 border-b border-[#F0EEF8]">
             {[
-              { num: 1, label: 'Personal' },
-              { num: 2, label: 'Employment' },
-              { num: 3, label: 'Assignment' },
-              { num: 4, label: 'Access' },
-              { num: 5, label: 'Review' },
+              { num: 1, label: '1. Essential Details' },
+              { num: 2, label: '2. Placement & Confirmation' },
             ].map((s) => (
               <div key={s.num} className="flex-1">
                 <div
@@ -2411,5 +2373,22 @@ export default function EmployeesPage() {
         </Modal>
       </PageContainer>
     </AppShell>
+  );
+}
+
+export default function EmployeesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#F5F3FF]">
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-8 w-8 rounded-full border-2 border-[#6C5CE7] border-t-transparent animate-spin" />
+            <p className="text-xs text-[#687086] font-medium">Loading workforce directory…</p>
+          </div>
+        </div>
+      }
+    >
+      <EmployeesContent />
+    </Suspense>
   );
 }

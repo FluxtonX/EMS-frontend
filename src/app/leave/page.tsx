@@ -29,43 +29,7 @@ import {
 } from '@/lib/api/leave';
 import { fetchEmployees } from '@/lib/api/employees';
 import { Employee } from '@/types/employee';
-
-// ─── Static demo data ─────────────────────────────────────────────────────────
-const DEMO_LEAVE_REQUESTS: LeaveRequest[] = [
-  {
-    id: 'leave-demo-1', companyId: 'demo', employeeId: 'emp-demo-1',
-    leaveType: 'annual', startDate: '2026-10-14', endDate: '2026-10-18',
-    totalDays: 5, reason: 'Family holiday', status: 'pending',
-    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-    employee: { id: 'emp-demo-1', firstName: 'James', lastName: 'Richardson', employeeNumber: 'EMP-001' },
-  },
-  {
-    id: 'leave-demo-2', companyId: 'demo', employeeId: 'emp-demo-2',
-    leaveType: 'sick', startDate: '2026-10-07', endDate: '2026-10-08',
-    totalDays: 2, reason: 'Illness', status: 'approved',
-    reviewedBy: 'Manager', reviewNotes: 'Approved. Get well soon.',
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    employee: { id: 'emp-demo-2', firstName: 'Amara', lastName: 'Osei', employeeNumber: 'EMP-002' },
-  },
-  {
-    id: 'leave-demo-3', companyId: 'demo', employeeId: 'emp-demo-3',
-    leaveType: 'emergency', startDate: '2026-10-21', endDate: '2026-10-22',
-    totalDays: 2, reason: 'Family emergency', status: 'rejected',
-    reviewNotes: 'Insufficient cover — please resubmit for the following week.',
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-    employee: { id: 'emp-demo-3', firstName: 'Mohammed', lastName: 'Al-Hassan', employeeNumber: 'EMP-003' },
-  },
-  {
-    id: 'leave-demo-4', companyId: 'demo', employeeId: 'emp-demo-4',
-    leaveType: 'annual', startDate: '2026-11-03', endDate: '2026-11-07',
-    totalDays: 5, reason: 'Pre-booked holiday', status: 'pending',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-    employee: { id: 'emp-demo-4', firstName: 'Sarah', lastName: 'Williams', employeeNumber: 'EMP-004' },
-  },
-];
+import { useAuth } from '@/lib/auth/AuthContext';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
@@ -327,9 +291,9 @@ function ReviewModal({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function LeavePage() {
+  const { session, isLoading: authLoading } = useAuth();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isUsingDemoData, setIsUsingDemoData] = useState(false);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -342,8 +306,6 @@ export default function LeavePage() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  useEffect(() => { loadData(); }, []);
-
   const loadData = async () => {
     setLoading(true);
     try {
@@ -355,21 +317,20 @@ export default function LeavePage() {
       const empResponse = empData.status === 'fulfilled' ? empData.value : null;
       const emps: Employee[] = empResponse?.items ?? [];
 
-      if (leave.length === 0) {
-        setRequests(DEMO_LEAVE_REQUESTS);
-        setIsUsingDemoData(true);
-      } else {
-        setRequests(leave);
-        setIsUsingDemoData(false);
-      }
+      setRequests(Array.isArray(leave) ? leave : []);
       setEmployees(emps);
     } catch {
-      setRequests(DEMO_LEAVE_REQUESTS);
-      setIsUsingDemoData(true);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!authLoading && session) {
+      loadData();
+    }
+  }, [authLoading, session]);
 
   const filtered = useMemo(() => {
     return requests.filter((r) => {
@@ -389,7 +350,6 @@ export default function LeavePage() {
   const handleCreate = async (payload: CreateLeavePayload) => {
     const created = await createLeaveRequestApi(payload);
     setRequests((prev) => [created, ...prev]);
-    setIsUsingDemoData(false);
     showToast('Leave request submitted');
   };
 
@@ -417,7 +377,7 @@ export default function LeavePage() {
     <AppShell>
       <PageContainer
         title="Leave Management"
-        subtitle={isUsingDemoData ? 'Demo data — submit a request to see live records' : `${stats.total} total requests`}
+        subtitle={`${stats.total} total requests`}
         primaryAction={
           <Button size="sm" variant="primary" leftIcon={<Plus className="w-4 h-4" />}
             onClick={() => setIsNewModalOpen(true)}>
@@ -434,14 +394,6 @@ export default function LeavePage() {
               ? <CheckCircle2 className="w-4 h-4 text-[#18B887]" />
               : <XCircle className="w-4 h-4" />}
             {toastMessage.text}
-          </div>
-        )}
-
-        {/* Demo banner */}
-        {isUsingDemoData && (
-          <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] text-xs text-[#171A2B]">
-            <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse shrink-0" />
-            Showing sample leave records. Submit a real request to switch to live data.
           </div>
         )}
 

@@ -20,7 +20,6 @@ import {
   X,
   Printer,
   Building2,
-  Sparkles,
   Info,
   ShieldCheck,
   CreditCard,
@@ -211,7 +210,7 @@ export default function PayrollPage() {
           <Button
             variant="primary"
             size="sm"
-            leftIcon={<Sparkles className="h-4 w-4" />}
+            leftIcon={<Plus className="h-4 w-4" />}
             onClick={() => setIsCreateOpen(true)}
             className="bg-[#6C5CE7] hover:bg-[#5846DB] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.05)] text-xs h-[38px] px-4 font-semibold"
           >

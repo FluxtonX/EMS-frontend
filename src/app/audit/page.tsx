@@ -16,9 +16,9 @@ import {
 } from 'lucide-react';
 
 import { AppShell } from '@/components/layout/AppShell';
-
 import { fetchAuditLogs, AuditLog } from '@/lib/api/audit';
 import { toast } from '@/lib/toastStore';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function AuditTrailPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -27,9 +27,13 @@ export default function AuditTrailPage() {
   const [entityFilter, setEntityFilter] = useState('ALL');
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
+  const { session, isLoading: authLoading } = useAuth();
+
   useEffect(() => {
-    loadAuditLogs();
-  }, []);
+    if (!authLoading && session) {
+      loadAuditLogs();
+    }
+  }, [authLoading, session]);
 
   const loadAuditLogs = async () => {
     try {
@@ -92,7 +96,6 @@ export default function AuditTrailPage() {
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#6C5CE7]/10 text-[#6C5CE7]">
                 Compliance & Security
               </span>
-              <span className="text-xs text-gray-500 font-medium">Immutable Forensics • Multi-Tenant Enforced</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight mt-1">
               Enterprise Audit Trail
@@ -112,67 +115,51 @@ export default function AuditTrailPage() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6 my-6">
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] hover:border-[#6C5CE7]/30 transition-all">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 my-6">
+          <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Recorded Events</span>
-              <div className="w-9 h-9 rounded-xl bg-[#6C5CE7]/10 flex items-center justify-center text-[#6C5CE7]">
-                <History className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-[#6C5CE7]/10 flex items-center justify-center text-[#6C5CE7]">
+                <History className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="text-2xl font-bold text-gray-900">{logs.length}</span>
-              <span className="ml-2 text-xs font-medium text-emerald-600">Tamper-proof</span>
-            </div>
-            <p className="text-xs text-gray-500 mt-1">Stored with SHA-256 integrity</p>
+            <div className="mt-2 text-2xl font-bold text-gray-900">{logs.length}</div>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] hover:border-[#6C5CE7]/30 transition-all">
+          <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Financial Mutations</span>
-              <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center text-[#6C5CE7]">
-                <ShieldAlert className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center text-[#6C5CE7]">
+                <ShieldAlert className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="text-2xl font-bold text-gray-900">
-                {logs.filter(l => l.action.includes('INVOICE') || l.action.includes('PAYRUN')).length}
-              </span>
-              <span className="ml-2 text-xs font-medium text-[#6C5CE7]">100% reconciled</span>
+            <div className="mt-2 text-2xl font-bold text-gray-900">
+              {logs.filter(l => l.action.includes('INVOICE') || l.action.includes('PAYRUN')).length}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Invoices, billing rates, pay runs</p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] hover:border-[#6C5CE7]/30 transition-all">
+          <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Supervisor Overrides</span>
-              <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-                <Clock className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600">
+                <Clock className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="text-2xl font-bold text-gray-900">
-                {logs.filter(l => l.action.includes('RECONCILE') || l.action.includes('ADJUST')).length}
-              </span>
-              <span className="ml-2 text-xs font-medium text-amber-600">Justified</span>
+            <div className="mt-2 text-2xl font-bold text-gray-900">
+              {logs.filter(l => l.action.includes('RECONCILE') || l.action.includes('ADJUST')).length}
             </div>
-            <p className="text-xs text-gray-500 mt-1">GPS geofence & break adjustments</p>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] hover:border-[#6C5CE7]/30 transition-all">
+          <div className="bg-white p-4 rounded-xl border border-gray-200/80 shadow-xs">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Compliance Verifications</span>
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                <CheckCircle2 className="w-5 h-5" />
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600">
+                <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
-            <div className="mt-3">
-              <span className="text-2xl font-bold text-emerald-600">
-                {logs.filter(l => l.action.includes('LICENCE') || l.action.includes('DOCUMENT')).length}
-              </span>
-              <span className="ml-2 text-xs font-medium text-gray-500">SIA verified</span>
+            <div className="mt-2 text-2xl font-bold text-gray-900">
+              {logs.filter(l => l.action.includes('LICENCE') || l.action.includes('DOCUMENT')).length}
             </div>
-            <p className="text-xs text-gray-500 mt-1">Official badge checks & document uploads</p>
           </div>
         </div>
 

@@ -14,14 +14,15 @@ import {
   Building2,
   Clock,
   CheckCheck,
-  Sparkles,
   Phone,
   Radio,
+  X,
 } from 'lucide-react';
 
 export default function EmployeeDispatchChatPage() {
   const queryClient = useQueryClient();
   const [inputText, setInputText] = useState('');
+  const [showQuickPills, setShowQuickPills] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // 1. Fetch current employee identity
@@ -64,6 +65,10 @@ export default function EmployeeDispatchChatPage() {
     onSuccess: (newMsg) => {
       if (newMsg) {
         setInputText('');
+        queryClient.setQueryData(['my-dispatch-messages', conversationId], (old: any = []) => [
+          ...old,
+          newMsg,
+        ]);
         queryClient.invalidateQueries({ queryKey: ['my-dispatch-messages', conversationId] });
       }
     },
@@ -172,20 +177,31 @@ export default function EmployeeDispatchChatPage() {
       </div>
 
       {/* Quick Action Dispatch Pills */}
-      <div className="px-4 py-2 border-t border-slate-200/60 bg-white/70 overflow-x-auto flex items-center gap-1.5 scrollbar-none">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
-          Quick:
-        </span>
-        {quickPills.map((pill) => (
+      {showQuickPills && quickPills.length > 0 && (
+        <div className="px-4 py-2 border-t border-slate-200/60 bg-white/70 flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
+              Quick Suggestions:
+            </span>
+            {quickPills.map((pill) => (
+              <button
+                key={pill}
+                onClick={() => setInputText(pill)}
+                className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-[#EDE9FE] hover:text-[#6C5CE7] hover:border-[#D5D0FA] text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
+              >
+                {pill}
+              </button>
+            ))}
+          </div>
           <button
-            key={pill}
-            onClick={() => setInputText(pill)}
-            className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-[#EDE9FE] hover:text-[#6C5CE7] hover:border-[#D5D0FA] text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
+            onClick={() => setShowQuickPills(false)}
+            className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/50 shrink-0 ml-2"
+            title="Dismiss quick suggestions"
           >
-            {pill}
+            <X className="w-3.5 h-3.5" />
           </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       {/* Input Bar */}
       <form

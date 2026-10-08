@@ -43,24 +43,51 @@ interface NavItem {
   roles?: string[];
 }
 
-const navigationItems: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Chat', href: '/chat', icon: MessageSquare, dynamicChatBadge: true },
-  { label: 'Employees', href: '/employees', icon: Users, dynamicBadge: true },
-  { label: 'Team Members', href: '/team', icon: UserCog, roles: ['OWNER', 'ADMIN'] },
-  { label: 'Sites', href: '/sites', icon: Building2 },
-  { label: 'Job Roles & Rates', href: '/jobs', icon: Briefcase, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
-  { label: 'Assignments', href: '/assignments', icon: UserCheck },
-  { label: 'Shifts Schedule', href: '/shifts', icon: Calendar },
-  { label: 'Attendance', href: '/attendance', icon: Clock },
-  { label: 'Timesheets', href: '/timesheets', icon: FileSpreadsheet, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
-  { label: 'Payroll', href: '/payroll', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
-  { label: 'Clients & Invoicing', href: '/clients', icon: ReceiptText, roles: ['OWNER', 'ADMIN'] },
-  { label: 'Licences & Compliance', href: '/compliance', icon: FileCheck, alert: true, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
-  { label: 'Leave Management', href: '/leave', icon: CalendarOff, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
-  { label: 'Reports', href: '/reports', icon: BarChart3, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
-  { label: 'Notifications', href: '/notifications', icon: Bell },
-  { label: 'Audit Trail', href: '/audit', icon: History, roles: ['OWNER', 'ADMIN'] },
+interface NavGroup {
+  title?: string;
+  items: NavItem[];
+}
+
+const navigationGroups: NavGroup[] = [
+  {
+    items: [
+      { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
+    title: 'Operations',
+    items: [
+      { label: 'Chat Comms', href: '/chat', icon: MessageSquare, dynamicChatBadge: true },
+      { label: 'Shifts & Rota', href: '/shifts', icon: Calendar },
+      { label: 'Attendance', href: '/attendance', icon: Clock },
+      { label: 'Timesheets', href: '/timesheets', icon: FileSpreadsheet, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
+      { label: 'Leave', href: '/leave', icon: CalendarOff, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
+    ],
+  },
+  {
+    title: 'Workforce',
+    items: [
+      { label: 'Employees', href: '/employees', icon: Users, dynamicBadge: true },
+      { label: 'Assignments', href: '/assignments', icon: UserCheck },
+      { label: 'SIA Compliance', href: '/compliance', icon: FileCheck, alert: true, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
+    ],
+  },
+  {
+    title: 'Sites & Clients',
+    items: [
+      { label: 'Sites & Rates', href: '/sites', icon: Building2 },
+      { label: 'Clients & Billing', href: '/clients', icon: ReceiptText, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
+  {
+    title: 'Administration',
+    items: [
+      { label: 'Team Members', href: '/team', icon: UserCog, roles: ['OWNER', 'ADMIN'] },
+      { label: 'Payroll', href: '/payroll', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
+      { label: 'Reports', href: '/reports', icon: BarChart3, roles: ['OWNER', 'ADMIN', 'MANAGER'] },
+      { label: 'Audit Log', href: '/audit', icon: History, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -155,88 +182,100 @@ export function Sidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-0.5 scrollbar-thin">
-        {navigationItems
-          .filter((item) => !item.roles || item.roles.includes(currentRole))
-          .map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            pathname === item.href ||
-            (item.href !== '/' && pathname.startsWith(item.href));
-
-          const badge =
-            item.dynamicBadge
-              ? employeeCount !== null
-                ? String(employeeCount)
-                : null
-              : item.dynamicChatBadge
-              ? unreadChatCount && unreadChatCount > 0
-                ? String(unreadChatCount)
-                : null
-              : item.badge != null
-              ? String(item.badge)
-              : null;
-
-          const isChatBadge = item.dynamicChatBadge && unreadChatCount && unreadChatCount > 0;
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-3 space-y-3 scrollbar-thin">
+        {navigationGroups.map((group, gIdx) => {
+          const visibleItems = group.items.filter((item) => !item.roles || item.roles.includes(currentRole));
+          if (visibleItems.length === 0) return null;
 
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'group relative flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 select-none',
-                isActive
-                  ? 'sidebar-active-tab bg-[#EDE9FE] text-[#6C5CE7] font-semibold border border-[#D5D0FA]'
-                  : 'text-[#687086] hover:bg-[#F5F3FF] hover:text-[#171A2B]'
+            <div key={gIdx} className="space-y-0.5">
+              {!isSidebarCollapsed && group.title && (
+                <div className="px-3 pb-1 pt-1 text-[10px] font-bold tracking-wider text-[#9096A9] uppercase">
+                  {group.title}
+                </div>
               )}
-              style={
-                isActive
-                  ? {
-                      boxShadow:
-                        'inset 0 3px 6px rgba(108, 92, 231, 0.28), inset 0 1px 2px rgba(90, 74, 205, 0.38)',
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                const isActive =
+                  pathname === item.href ||
+                  (item.href !== '/' && pathname.startsWith(item.href));
+
+                const badge =
+                  item.dynamicBadge
+                    ? employeeCount !== null
+                      ? String(employeeCount)
+                      : null
+                    : item.dynamicChatBadge
+                    ? unreadChatCount && unreadChatCount > 0
+                      ? String(unreadChatCount)
+                      : null
+                    : item.badge != null
+                    ? String(item.badge)
+                    : null;
+
+                const isChatBadge = item.dynamicChatBadge && unreadChatCount && unreadChatCount > 0;
+
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'group relative flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 select-none',
+                      isActive
+                        ? 'sidebar-active-tab bg-[#EDE9FE] text-[#6C5CE7] font-semibold border border-[#D5D0FA]'
+                        : 'text-[#687086] hover:bg-[#F5F3FF] hover:text-[#171A2B]'
+                    )}
+                    style={
+                      isActive
+                        ? {
+                            boxShadow:
+                              'inset 0 3px 6px rgba(108, 92, 231, 0.28), inset 0 1px 2px rgba(90, 74, 205, 0.38)',
+                          }
+                        : undefined
                     }
-                  : undefined
-              }
-              title={isSidebarCollapsed ? item.label : undefined}
-            >
-              {/* Active left accent bar */}
-              {isActive && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#6C5CE7]" />
-              )}
+                    title={isSidebarCollapsed ? item.label : undefined}
+                  >
+                    {/* Active left accent bar */}
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#6C5CE7]" />
+                    )}
 
-              <Icon
-                className={cn(
-                  'h-4 w-4 shrink-0 transition-colors',
-                  isActive ? 'text-[#6C5CE7]' : 'text-[#9096A9] group-hover:text-[#171A2B]'
-                )}
-              />
+                    <Icon
+                      className={cn(
+                        'h-4 w-4 shrink-0 transition-colors',
+                        isActive ? 'text-[#6C5CE7]' : 'text-[#9096A9] group-hover:text-[#171A2B]'
+                      )}
+                    />
 
-              {!isSidebarCollapsed && (
-                <span className="flex-1 truncate">{item.label}</span>
-              )}
+                    {!isSidebarCollapsed && (
+                      <span className="flex-1 truncate">{item.label}</span>
+                    )}
 
-              {!isSidebarCollapsed && badge && (
-                <span
-                  className={cn(
-                    'px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition-colors',
-                    isChatBadge
-                      ? 'bg-[#6C5CE7] text-white shadow-xs animate-pulse'
-                      : isActive
-                      ? 'bg-[#6C5CE7]/15 text-[#6C5CE7]'
-                      : 'bg-[#F5F3FF] text-[#687086] border border-[#E5E3F2]'
-                  )}
-                >
-                  {badge}
-                </span>
-              )}
+                    {!isSidebarCollapsed && badge && (
+                      <span
+                        className={cn(
+                          'px-2 py-0.5 rounded-full text-[10px] font-bold tracking-tight transition-colors',
+                          isChatBadge
+                            ? 'bg-[#6C5CE7] text-white shadow-xs animate-pulse'
+                            : isActive
+                            ? 'bg-[#6C5CE7]/15 text-[#6C5CE7]'
+                            : 'bg-[#F5F3FF] text-[#687086] border border-[#E5E3F2]'
+                        )}
+                      >
+                        {badge}
+                      </span>
+                    )}
 
-              {!isSidebarCollapsed && item.alert && (
-                <span
-                  className="flex h-2 w-2 rounded-full bg-amber-400 shadow-sm"
-                  title="Compliance Alert"
-                />
-              )}
-            </Link>
+                    {!isSidebarCollapsed && item.alert && (
+                      <span
+                        className="flex h-2 w-2 rounded-full bg-amber-400 shadow-sm"
+                        title="Compliance Alert"
+                      />
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
           );
         })}
       </nav>

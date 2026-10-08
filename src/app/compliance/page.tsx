@@ -40,7 +40,7 @@ import {
 } from '@/lib/api/licences';
 import { fetchEmployees } from '@/lib/api/employees';
 import { EmployeeLicence, LicenceStatus } from '@/types/licence';
-import { mockLicences, mockComplianceSummary, mockEmployees } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function CompliancePage() {
   const queryClient = useQueryClient();
@@ -63,7 +63,6 @@ export default function CompliancePage() {
   const {
     licences,
     complianceSummary: summary,
-    hasRealLicences,
     isLicencesLoading,
     fetchLicences: syncLicences,
     createLicence: storeCreateLicence,
@@ -73,10 +72,14 @@ export default function CompliancePage() {
     fetchEmployees: syncEmployees,
   } = useWorkforceStore();
 
+  const { session, isLoading: authLoading } = useAuth();
+
   useEffect(() => {
-    syncLicences();
-    syncEmployees();
-  }, [syncLicences, syncEmployees]);
+    if (!authLoading && session) {
+      syncLicences();
+      syncEmployees();
+    }
+  }, [authLoading, session, syncLicences, syncEmployees]);
 
   // Create licence mutation
   const createMutation = useMutation({
@@ -118,8 +121,6 @@ export default function CompliancePage() {
       queryClient.invalidateQueries({ queryKey: ['compliance-summary'] });
     },
   });
-
-  const isUsingMockData = !hasRealLicences;
 
   const displayLicences: EmployeeLicence[] = useMemo(() => {
     let list = licences;
@@ -263,23 +264,7 @@ export default function CompliancePage() {
             Add / Verify Licence
           </Button>
         }
-        secondaryActions={
-          isUsingMockData ? (
-            <Badge variant="info" size="sm" className="gap-1">
-              <Info className="h-3 w-3 text-[#6C5CE7]" />
-              Sample Compliance Data
-            </Badge>
-          ) : undefined
-        }
       >
-        {isUsingMockData && (
-          <div className="p-3 mb-5 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
-              <span>Showing sample SIA licence records. Click &quot;Add / Verify Licence&quot; to register your first live compliance record.</span>
-            </div>
-          </div>
-        )}
 
         {/* Operational Compliance Metric Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">

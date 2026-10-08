@@ -16,27 +16,7 @@ export interface AuditLog {
   createdAt: string;
 }
 
-function getAuthHeaders(token?: string) {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  } else if (typeof window !== 'undefined') {
-    try {
-      const session = localStorage.getItem('workforce_auth_session');
-      if (session) {
-        const parsed = JSON.parse(session);
-        if (parsed.accessToken) {
-          headers['Authorization'] = `Bearer ${parsed.accessToken}`;
-        }
-      }
-    } catch {
-      // Fallback
-    }
-  }
-  return headers;
-}
+import { getAuthHeaders } from './authHeaders';
 
 export async function fetchAuditLogs(limit = 100): Promise<AuditLog[]> {
   const res = await fetch(`${API_BASE_URL}/audit?limit=${limit}`, {

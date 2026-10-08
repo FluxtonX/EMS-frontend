@@ -60,8 +60,9 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // 3. Employee Portal Route Guard
-  if (pathname.startsWith('/employee')) {
+  // 3. Employee Portal Route Guard (e.g. /employee/dashboard, /employee/profile, but NOT /employees)
+  const isEmployeePortalRoute = pathname === '/employee' || pathname.startsWith('/employee/');
+  if (isEmployeePortalRoute) {
     // If not employee role, redirect to main portal
     if (role && role !== 'employee') {
       return NextResponse.redirect(new URL('/dashboard', req.url));

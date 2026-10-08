@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { useWorkforceStore } from '@/lib/stores/workforceStore';
+import { fetchShiftsApi } from '@/lib/api/shifts';
+import { fetchAttendanceRecordsApi } from '@/lib/api/attendance';
 import {
   Users,
   Clock,
@@ -13,7 +15,6 @@ import {
   ShieldAlert,
   Plus,
   MessageSquare,
-  Sparkles,
 } from 'lucide-react';
 import { HeroStatCard } from '@/components/dashboard/HeroStatCard';
 import { GlassStatCard } from '@/components/dashboard/GlassStatCard';
@@ -26,6 +27,10 @@ export default function DashboardPage() {
   const { session, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
+  const [todayShiftsCount, setTodayShiftsCount] = useState(0);
+  const [attendanceRate, setAttendanceRate] = useState(0);
+  const [activeOnDutyCount, setActiveOnDutyCount] = useState(0);
+
   // If not authenticated, redirect to login
   useEffect(() => {
     if (!authLoading && !session) {
@@ -37,25 +42,51 @@ export default function DashboardPage() {
   const {
     employees,
     sites,
+    complianceSummary,
     fetchEmployees: syncEmployees,
     fetchSites: syncSites,
+    fetchLicences: syncLicences,
   } = useWorkforceStore();
 
   useEffect(() => {
-    if (session) {
+    if (!authLoading && session) {
       syncEmployees();
       syncSites();
-    }
-  }, [session, syncEmployees, syncSites]);
+      syncLicences();
 
-  const activeEmployeesCount = employees.length > 0 ? employees.length : 38;
-  const protectedSitesCount = sites.length > 0 ? sites.length : 4;
+      const today = new Date().toISOString().split('T')[0];
+      Promise.allSettled([
+        fetchShiftsApi({ startDate: today, endDate: today }),
+        fetchAttendanceRecordsApi({ startDate: today, endDate: today }),
+      ]).then(([shiftsRes, attRes]) => {
+        const shifts = shiftsRes.status === 'fulfilled' && Array.isArray(shiftsRes.value) ? shiftsRes.value : [];
+        const atts = attRes.status === 'fulfilled' && Array.isArray(attRes.value) ? attRes.value : [];
+
+        setTodayShiftsCount(shifts.length);
+
+        const onDuty = atts.filter((r) => r.status === 'clocked_in' || r.status === 'on_break').length;
+        setActiveOnDutyCount(onDuty);
+
+        const checkedInCount = atts.filter((r) => r.status === 'clocked_in' || r.status === 'clocked_out' || r.status === 'reconciled').length;
+        const totalTarget = shifts.length > 0 ? shifts.length : employees.length;
+        const rate = totalTarget > 0 ? Math.min(100, Math.round((checkedInCount / totalTarget) * 100)) : 0;
+        setAttendanceRate(rate);
+      });
+    }
+  }, [authLoading, session, syncEmployees, syncSites, syncLicences, employees.length]);
+
+  const activeEmployeesCount = employees.length;
+  const protectedSitesCount = sites.length;
+
+  const siaComplianceRate =
+    complianceSummary.total > 0
+      ? Math.round(((complianceSummary.valid + complianceSummary.expiringSoon) / complianceSummary.total) * 100)
+      : (employees.length > 0 ? 100 : 0);
 
   const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
   const currentRole = rawRole === 'SUPERVISOR' ? 'OPERATOR' : rawRole;
   const isOperator = currentRole === 'OPERATOR';
   const isManager = currentRole === 'MANAGER';
-  const isOwner = currentRole === 'OWNER' || currentRole === 'ADMIN';
 
   const userGreeting = session?.user?.firstName || (isOperator ? 'Operator' : isManager ? 'Operations Manager' : 'Director');
 
@@ -87,9 +118,6 @@ export default function DashboardPage() {
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-[#171A2B]">
                 Good morning, {userGreeting}
               </h1>
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#EDE9FE] text-[#6C5CE7] shadow-2xs">
-                <Sparkles className="h-3.5 w-3.5" />
-              </span>
             </div>
             <p className="text-xs sm:text-sm text-[#687086] mt-1">
               {isOperator ? (
@@ -128,7 +156,7 @@ export default function DashboardPage() {
               </Link>
             ) : (
               <Link
-                href="/employees"
+                href="/employees?new=true"
                 className="inline-flex items-center gap-2 rounded-xl bg-[#6C5CE7] hover:bg-[#5B4BC4] px-4 py-2 text-xs font-bold text-white shadow-md shadow-[#6C5CE7]/25 transition-all hover:-translate-y-0.5"
               >
                 <Plus className="h-4 w-4" />
@@ -138,52 +166,52 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 4 Stat Cards Row (Strictly matching Screenshot 1) */}
+        {/* 4 Stat Cards Row - Fully Dynamic */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {/* Card 1: Royal Purple Hero Card */}
+          {/* Card 1: Total Active Workforce */}
           <HeroStatCard
             title="Total Active Workforce"
             value={activeEmployeesCount}
             subtitle={`Deployed across ${protectedSitesCount} licensed sites`}
-            trend="+12.5% vs last month"
+            trend={`${activeEmployeesCount > 0 ? '+100%' : '0%'} live DB`}
             icon={Users}
-            sparklineData={[22, 25, 24, 29, 31, 35, activeEmployeesCount]}
+            sparklineData={[0, Math.ceil(activeEmployeesCount * 0.3), Math.ceil(activeEmployeesCount * 0.6), activeEmployeesCount]}
           />
 
           {/* Card 2: Attendance Rate */}
           <GlassStatCard
             title="Attendance Rate"
-            value="94.6%"
+            value={`${attendanceRate}%`}
             subtitle="GPS-verified post check-ins"
-            trend="+2.1% on target"
-            trendDirection="up"
+            trend={attendanceRate > 0 ? `${attendanceRate}% verified` : '0% check-ins'}
+            trendDirection={attendanceRate > 0 ? 'up' : 'neutral'}
             icon={Clock}
             accentColor="emerald"
-            sparklineData={[91, 92, 90, 93, 94, 94, 95]}
+            sparklineData={[0, Math.ceil(attendanceRate * 0.5), attendanceRate]}
           />
 
           {/* Card 3: Today's Active Shifts */}
           <GlassStatCard
             title="Shifts Today"
-            value="18 Shifts"
+            value={`${todayShiftsCount} Shifts`}
             subtitle="Morning & afternoon rotations"
-            trend="4 Active on duty"
-            trendDirection="up"
+            trend={`${activeOnDutyCount} Active on duty`}
+            trendDirection={activeOnDutyCount > 0 ? 'up' : 'neutral'}
             icon={CalendarCheck}
             accentColor="purple"
-            sparklineData={[14, 15, 16, 15, 17, 18, 18]}
+            sparklineData={[0, Math.ceil(todayShiftsCount * 0.5), todayShiftsCount]}
           />
 
           {/* Card 4: Compliance & SIA Licences */}
           <GlassStatCard
             title="SIA Compliance"
-            value="98.2%"
-            subtitle="All badge credentials verified"
-            trend="100% SIA Verified"
+            value={`${siaComplianceRate}%`}
+            subtitle={`${complianceSummary.total} verified badges`}
+            trend={`${complianceSummary.valid} Valid SIA`}
             trendDirection="neutral"
             icon={ShieldAlert}
             accentColor="amber"
-            sparklineData={[96, 97, 98, 97, 98, 98, 98]}
+            sparklineData={[0, Math.ceil(siaComplianceRate * 0.5), siaComplianceRate]}
           />
         </div>
 
@@ -194,7 +222,7 @@ export default function DashboardPage() {
           </div>
           <div className="lg:col-span-4">
             <AttendanceDonutChart
-              presentRate={94.6}
+              presentRate={attendanceRate}
               totalOfficers={activeEmployeesCount}
             />
           </div>

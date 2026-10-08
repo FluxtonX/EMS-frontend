@@ -67,15 +67,15 @@ export function Modal({
       <div
         ref={dialogRef}
         className={cn(
-          'relative w-full bg-white rounded-lg border border-[#E5E3F2] shadow-xl overflow-hidden animate-in zoom-in-95 duration-150',
+          'relative w-full max-h-[90vh] sm:max-h-[85vh] flex flex-col bg-white rounded-2xl border border-[#E5E3F2] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 my-auto mx-auto',
           maxWidthMap[maxWidth]
         )}
       >
         {(title || description) && (
-          <div className="flex items-start justify-between px-5 pt-5 pb-3 border-b border-[#F0EEF8]">
+          <div className="flex items-start justify-between px-5 py-4 border-b border-[#F0EEF8] shrink-0 bg-white">
             <div>
               {title && (
-                <h3 id="modal-title" className="text-base font-semibold text-[#171A2B]">
+                <h3 id="modal-title" className="text-base font-bold text-[#171A2B]">
                   {title}
                 </h3>
               )}
@@ -87,7 +87,7 @@ export function Modal({
             </div>
             <button
               onClick={onClose}
-              className="rounded p-1 text-[#687086] hover:text-[#171A2B] hover:bg-[#F5F3FF] transition-colors"
+              className="rounded-lg p-1.5 text-[#687086] hover:text-[#171A2B] hover:bg-[#F5F3FF] transition-colors"
               aria-label="Close modal"
             >
               <X className="h-4 w-4" />
@@ -95,10 +95,10 @@ export function Modal({
           </div>
         )}
 
-        <div className="p-5">{children}</div>
+        <div className="p-5 overflow-y-auto flex-1 scrollbar-thin">{children}</div>
 
         {footer && (
-          <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[#F0EEF8] bg-[#F5F3FF]">
+          <div className="flex items-center justify-end gap-2 px-5 py-3 border-t border-[#F0EEF8] bg-[#F5F3FF] shrink-0">
             {footer}
           </div>
         )}

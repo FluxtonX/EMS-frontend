@@ -4,13 +4,6 @@ import { Employee } from '@/types/employee';
 import { Site, JobType, SiteJob } from '@/types/site';
 import { EmployeeLicence, ComplianceSummary, LicenceStatus } from '@/types/licence';
 import {
-  mockEmployees,
-  mockSites,
-  mockJobTypes,
-  mockLicences,
-  mockComplianceSummary,
-} from '@/lib/mockData';
-import {
   fetchEmployees as apiFetchEmployees,
   createEmployeeApi,
   updateEmployeeApi,
@@ -128,26 +121,33 @@ interface WorkforceState {
 export const useWorkforceStore = create<WorkforceState>()(
   persist(
     (set, get) => ({
-      // Baseline initial state is loaded immediately from seed data
-      employees: mockEmployees,
-      totalEmployees: mockEmployees.length,
+      // Baseline initial state is loaded empty from database
+      employees: [],
+      totalEmployees: 0,
       isEmployeesLoading: false,
       isEmployeesRefreshing: false,
       employeesLastFetched: null,
       hasRealEmployees: false,
 
-      sites: mockSites,
+      sites: [],
       isSitesLoading: false,
       isSitesRefreshing: false,
       sitesLastFetched: null,
       hasRealSites: false,
 
-      jobTypes: mockJobTypes,
+      jobTypes: [],
       isJobTypesLoading: false,
       jobTypesLastFetched: null,
 
-      licences: mockLicences,
-      complianceSummary: mockComplianceSummary,
+      licences: [],
+      complianceSummary: {
+        total: 0,
+        valid: 0,
+        expiringSoon: 0,
+        expired: 0,
+        pendingVerification: 0,
+        rejected: 0,
+      },
       isLicencesLoading: false,
       isLicencesRefreshing: false,
       licencesLastFetched: null,

@@ -25,7 +25,7 @@ import {
   Phone,
   Mail,
   User,
-  Sparkles,
+  X,
 } from 'lucide-react';
 
 const avatarGradients = [
@@ -53,16 +53,44 @@ const getInitials = (fullName: string) => {
   return fullName.substring(0, 2).toUpperCase() || 'EM';
 };
 
+import { useWorkforceStore } from '@/lib/stores/workforceStore';
+import { UserPlus } from 'lucide-react';
+
 function CompanyChatContent() {
   const { session } = useAuth();
   const searchParams = useSearchParams();
   const targetEmployeeId = searchParams.get('employeeId');
   const queryClient = useQueryClient();
 
+  const [showQuickReplies, setShowQuickReplies] = useState(true);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
+  const [isStartingChat, setIsStartingChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const { employees: storeEmployees, fetchEmployees: syncEmployees } = useWorkforceStore();
+
+  useEffect(() => {
+    syncEmployees();
+  }, [syncEmployees]);
+
+  // Fetch Team Members for search
+  const { data: teamMembers = [] } = useQuery({
+    queryKey: ['team-members-chat'],
+    queryFn: async () => {
+      const token = session?.accessToken;
+      if (!token) return [];
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1'}/team`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      const payload = data.data !== undefined ? data.data : data;
+      return (payload.members || []) as Array<{ id: string; name: string; email: string; role: string }>;
+    },
+    enabled: !!session?.accessToken,
+  });
 
   // Poll conversations every 4 seconds
   const { data: conversations = [], isLoading: isConversationsLoading } = useQuery({
@@ -71,17 +99,32 @@ function CompanyChatContent() {
     refetchInterval: 4000,
   });
 
+  // Start chat with an employee or team member
+  const handleStartEmployeeChat = async (empId: string) => {
+    setIsStartingChat(true);
+    try {
+      const conv = await fetchChatConversationByEmployee(empId);
+      if (conv) {
+        queryClient.setQueryData(['chat-conversations'], (old: ChatConversation[] = []) => {
+          const exists = old.some((c) => c.id === conv.id);
+          if (exists) return old.map((c) => (c.id === conv.id ? conv : c));
+          return [conv, ...old];
+        });
+        setSelectedConversationId(conv.id);
+        setSearchQuery('');
+        queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
+      }
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
+
   // If query param employeeId is provided, resolve or create that conversation
   useEffect(() => {
     if (targetEmployeeId && session) {
-      fetchChatConversationByEmployee(targetEmployeeId).then((conv) => {
-        if (conv) {
-          setSelectedConversationId(conv.id);
-          queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
-        }
-      });
+      handleStartEmployeeChat(targetEmployeeId);
     }
-  }, [targetEmployeeId, session, queryClient]);
+  }, [targetEmployeeId, session]);
 
   // Set default selected conversation
   useEffect(() => {
@@ -114,6 +157,10 @@ function CompanyChatContent() {
     onSuccess: (newMsg) => {
       if (newMsg) {
         setInputText('');
+        queryClient.setQueryData(['chat-messages', selectedConversationId], (old: ChatMessage[] = []) => [
+          ...old,
+          newMsg,
+        ]);
         queryClient.invalidateQueries({ queryKey: ['chat-messages', selectedConversationId] });
         queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
         queryClient.invalidateQueries({ queryKey: ['chat-unread-count'] });
@@ -134,14 +181,47 @@ function CompanyChatContent() {
     }
   };
 
+  const q = searchQuery.toLowerCase().trim();
+
+  // Filter existing active conversations
   const filteredConversations = conversations.filter((c) => {
-    const q = searchQuery.toLowerCase();
+    if (!q) return true;
     return (
       c.employee_name?.toLowerCase().includes(q) ||
       c.employee_number?.toLowerCase().includes(q) ||
       c.site_name?.toLowerCase().includes(q)
     );
   });
+
+  // Find registered employees & team members who don't have an active conversation listed yet
+  const existingEmpIds = new Set(conversations.map((c) => c.employee_id));
+  const unstartedParticipants = React.useMemo(() => {
+    const list: Array<{ id: string; name: string; role: string; subtext: string; isTeamMember?: boolean }> = [];
+
+    // 1. Registered Employees
+    for (const emp of storeEmployees) {
+      if (existingEmpIds.has(emp.id)) continue;
+      const name = `${emp.firstName} ${emp.lastName}`;
+      const role = emp.currentAssignment?.role || 'Security Officer';
+      const subtext = `#${emp.employeeNumber}`;
+      if (!q || name.toLowerCase().includes(q) || emp.employeeNumber.toLowerCase().includes(q) || emp.email.toLowerCase().includes(q)) {
+        list.push({ id: emp.id, name, role, subtext });
+      }
+    }
+
+    // 2. Registered Team Members (Manager, Operator, Owner, Admin)
+    for (const tm of teamMembers) {
+      if (existingEmpIds.has(tm.id)) continue;
+      const name = tm.name;
+      const role = tm.role === 'Supervisor' ? 'Operator' : tm.role;
+      const subtext = tm.email;
+      if (q && (name.toLowerCase().includes(q) || tm.email.toLowerCase().includes(q) || role.toLowerCase().includes(q))) {
+        list.push({ id: tm.id, name, role: `Team • ${role}`, subtext, isTeamMember: true });
+      }
+    }
+
+    return list;
+  }, [conversations, storeEmployees, teamMembers, q]);
 
   const quickReplies = [
     'Shift confirmed for today.',
@@ -161,7 +241,7 @@ function CompanyChatContent() {
                 Workforce Communications Hub
               </h1>
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#EDE9FE] text-[#6C5CE7]">
-                <Sparkles className="h-3 w-3" />
+                <MessageSquare className="h-3 w-3" />
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -186,7 +266,7 @@ function CompanyChatContent() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Filter officers, sites..."
+                  placeholder="Search registered officers, staff..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100/90 border border-slate-200/70 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7] outline-none transition-all"
@@ -198,69 +278,107 @@ function CompanyChatContent() {
             <div className="flex-1 overflow-y-auto divide-y divide-slate-100/80 p-2 space-y-1">
               {isConversationsLoading && conversations.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400">Loading directory...</div>
-              ) : filteredConversations.length === 0 ? (
+              ) : filteredConversations.length === 0 && unstartedParticipants.length === 0 ? (
                 <div className="p-8 text-center text-xs text-slate-400">
                   <MessageSquare className="h-8 w-8 mx-auto mb-2 text-slate-300 stroke-1" />
-                  No active conversations found.
+                  {searchQuery ? 'No matching registered officers or staff found.' : 'No active conversations found.'}
                 </div>
               ) : (
-                filteredConversations.map((conv) => {
-                  const isSelected = conv.id === selectedConversationId;
-                  const grad = getAvatarGradient(conv.employee_name || conv.id);
-                  const initials = getInitials(conv.employee_name || 'Officer');
+                <>
+                  {filteredConversations.map((conv) => {
+                    const isSelected = conv.id === selectedConversationId;
+                    const grad = getAvatarGradient(conv.employee_name || conv.id);
+                    const initials = getInitials(conv.employee_name || 'Officer');
 
-                  return (
-                    <button
-                      key={conv.id}
-                      onClick={() => setSelectedConversationId(conv.id)}
-                      className={`w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-start gap-3 select-none ${
-                        isSelected
-                          ? 'bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA] shadow-[inset_0_2px_4px_rgba(108,92,231,0.14)] font-semibold'
-                          : 'hover:bg-[#F5F3FF]/70'
-                      }`}
-                    >
-                      {/* Avatar */}
-                      <div className="relative shrink-0">
-                        <div
-                          className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr ${grad} text-white font-bold text-xs shadow-xs ring-2 ring-white`}
-                        >
-                          {initials}
-                        </div>
-                        <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-bold text-slate-900 truncate">
-                            {conv.employee_name}
-                          </h4>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {new Date(conv.last_message_at).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </span>
+                    return (
+                      <button
+                        key={conv.id}
+                        onClick={() => setSelectedConversationId(conv.id)}
+                        className={`w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-start gap-3 select-none ${
+                          isSelected
+                            ? 'bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA] shadow-[inset_0_2px_4px_rgba(108,92,231,0.14)] font-semibold'
+                            : 'hover:bg-[#F5F3FF]/70'
+                        }`}
+                      >
+                        {/* Avatar */}
+                        <div className="relative shrink-0">
+                          <div
+                            className={`flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-tr ${grad} text-white font-bold text-xs shadow-xs ring-2 ring-white`}
+                          >
+                            {initials}
+                          </div>
+                          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white" />
                         </div>
 
-                        <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
-                          {conv.employee_role || 'Security Officer'} • {conv.site_name || 'Static Site'}
-                        </p>
-
-                        <div className="flex items-center justify-between mt-1">
-                          <p className="text-[11px] text-slate-500 truncate max-w-[170px]">
-                            {conv.last_message_preview || 'Tap to chat with officer'}
-                          </p>
-                          {conv.unread_count && conv.unread_count > 0 ? (
-                            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#6C5CE7] px-1 text-[9px] font-bold text-white shadow-xs">
-                              {conv.unread_count}
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-xs font-bold text-slate-900 truncate">
+                              {conv.employee_name}
+                            </h4>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {new Date(conv.last_message_at).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
                             </span>
-                          ) : null}
+                          </div>
+
+                          <p className="text-[11px] text-slate-500 font-medium truncate mt-0.5">
+                            {conv.employee_role || 'Security Officer'} • {conv.site_name || 'Static Site'}
+                          </p>
+
+                          <div className="flex items-center justify-between mt-1">
+                            <p className="text-[11px] text-slate-500 truncate max-w-[170px]">
+                              {conv.last_message_preview || 'Tap to chat with officer'}
+                            </p>
+                            {conv.unread_count && conv.unread_count > 0 ? (
+                              <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#6C5CE7] px-1 text-[9px] font-bold text-white shadow-xs">
+                                {conv.unread_count}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  );
-                })
+                      </button>
+                    );
+                  })}
+
+                  {/* Registered Officers & Team Members ready to start chat */}
+                  {unstartedParticipants.length > 0 && (
+                    <div className="pt-3 pb-1">
+                      <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">
+                        Registered Team & Officers
+                      </p>
+                      {unstartedParticipants.map((participant) => {
+                        const grad = getAvatarGradient(participant.name);
+                        const initials = getInitials(participant.name);
+
+                        return (
+                          <button
+                            key={participant.id}
+                            onClick={() => handleStartEmployeeChat(participant.id)}
+                            disabled={isStartingChat}
+                            className="w-full text-left p-2.5 rounded-2xl hover:bg-emerald-50/70 border border-transparent hover:border-emerald-100 transition-all flex items-center gap-3 select-none"
+                          >
+                            <div className={`flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr ${grad} text-white font-bold text-xs shrink-0`}>
+                              {initials}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h5 className="text-xs font-bold text-slate-900 truncate">{participant.name}</h5>
+                              <p className="text-[10px] text-slate-500 truncate">
+                                {participant.role} • {participant.subtext}
+                              </p>
+                            </div>
+                            <span className="flex items-center gap-1 text-[10px] font-semibold text-[#6C5CE7] bg-[#EDE9FE] px-2 py-0.5 rounded-full shrink-0">
+                              <UserPlus className="h-3 w-3" />
+                              Start Chat
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -328,7 +446,7 @@ function CompanyChatContent() {
                     <div className="py-12 text-center text-xs text-slate-400">Loading conversation...</div>
                   ) : messages.length === 0 ? (
                     <div className="py-12 text-center text-xs text-slate-400">
-                      No messages exchanged yet. Send a message to start conversation with this officer.
+                     Start Conversation here.
                     </div>
                   ) : (
                     messages.map((msg) => {
@@ -373,20 +491,31 @@ function CompanyChatContent() {
                 </div>
 
                 {/* Quick replies bar */}
-                <div className="px-4 py-2 border-t border-slate-200/60 bg-white/70 overflow-x-auto flex items-center gap-1.5 scrollbar-none">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
-                    Quick:
-                  </span>
-                  {quickReplies.map((reply) => (
+                {showQuickReplies && quickReplies.length > 0 && (
+                  <div className="px-4 py-2 border-t border-slate-200/60 bg-white/70 flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
+                        Quick Suggestions:
+                      </span>
+                      {quickReplies.map((reply) => (
+                        <button
+                          key={reply}
+                          onClick={() => setInputText(reply)}
+                          className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-[#EDE9FE] hover:text-[#6C5CE7] hover:border-[#D5D0FA] text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
+                        >
+                          {reply}
+                        </button>
+                      ))}
+                    </div>
                     <button
-                      key={reply}
-                      onClick={() => setInputText(reply)}
-                      className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-[#EDE9FE] hover:text-[#6C5CE7] hover:border-[#D5D0FA] text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
+                      onClick={() => setShowQuickReplies(false)}
+                      className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/50 shrink-0 ml-2"
+                      title="Dismiss quick suggestions"
                     >
-                      {reply}
+                      <X className="w-3.5 h-3.5" />
                     </button>
-                  ))}
-                </div>
+                  </div>
+                )}
 
                 {/* Input bar */}
                 <form

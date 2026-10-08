@@ -52,7 +52,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function SitesPage() {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { session, isLoading: authLoading } = useAuth();
   const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
   const currentRole = rawRole === 'SUPERVISOR' ? 'OPERATOR' : rawRole;
   const isOperator = currentRole === 'OPERATOR';
@@ -115,9 +115,11 @@ export default function SitesPage() {
   } = useWorkforceStore();
 
   useEffect(() => {
-    syncSites();
-    syncJobTypes();
-  }, [syncSites, syncJobTypes]);
+    if (!authLoading && session) {
+      syncSites();
+      syncJobTypes();
+    }
+  }, [authLoading, session, syncSites, syncJobTypes]);
 
   // Synchronize selected site with store updates reactively
   const activeSelectedSite = selectedSiteForRates

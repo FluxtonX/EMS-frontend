@@ -35,29 +35,31 @@ export function syncAuthCookies(session: AuthSession | null) {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<AuthSession | null>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(SESSION_STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          syncAuthCookies(parsed);
-          return parsed;
-        }
-      } catch {
-        localStorage.removeItem(SESSION_STORAGE_KEY);
-        syncAuthCookies(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Synchronize localStorage session after initial mount to prevent SSR hydration mismatch
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setSession(parsed);
+        syncAuthCookies(parsed);
       }
+    } catch {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      syncAuthCookies(null);
+    } finally {
+      setIsLoading(false);
     }
-    return null;
-  });
-  
-  // Initialize isLoading to false since we loaded synchronously from localStorage
-  const [isLoading, setIsLoading] = useState(false);
+  }, []);
 
   useEffect(() => {
-    syncAuthCookies(session);
-  }, [session]);
+    if (!isLoading) {
+      syncAuthCookies(session);
+    }
+  }, [session, isLoading]);
 
   const login = async (email: string, pass: string) => {
     setIsLoading(true);

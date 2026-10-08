@@ -53,7 +53,7 @@ import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function AssignmentsPage() {
   const queryClient = useQueryClient();
-  const { session } = useAuth();
+  const { session, isLoading: authLoading } = useAuth();
   const rawRole = (session?.company?.role || 'OWNER').toUpperCase().trim();
   const currentRole = rawRole === 'SUPERVISOR' ? 'OPERATOR' : rawRole;
   const isOperator = currentRole === 'OPERATOR';
@@ -95,30 +95,27 @@ export default function AssignmentsPage() {
   // Close Form State
   const [closeEndDate, setCloseEndDate] = useState(new Date().toISOString().split('T')[0]);
   const [closeReason, setCloseReason] = useState('');
-
-  // Initial load
   useEffect(() => {
-    fetchEmployees();
-  }, [fetchEmployees]);
+    if (!authLoading && session) {
+      fetchEmployees();
+    }
+  }, [authLoading, session, fetchEmployees]);
 
   // Fetch Sites
   const { data: sites = [] } = useQuery({
     queryKey: ['sites'],
     queryFn: fetchSites,
     staleTime: 5 * 60 * 1000,
+    enabled: !authLoading && !!session,
   });
 
   const realSites = useMemo(() => {
-    const list = sites.filter((s) => !s.id.startsWith('site-demo-'));
-    return list.length > 0 ? list : sites;
+    return sites.filter((s) => !s.id.startsWith('site-demo-'));
   }, [sites]);
 
   const candidateEmployees = useMemo(() => {
-    const real = employees.filter((e) => !e.id.startsWith('emp-demo-'));
-    return real.length > 0 ? real : employees;
+    return employees.filter((e) => !e.id.startsWith('emp-demo-'));
   }, [employees]);
-
-  // Fetch Assignments
   const {
     data: assignments = [],
     isLoading: isLoadingAssignments,
@@ -461,56 +458,44 @@ export default function AssignmentsPage() {
       >
         {/* KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
+          <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
               <span className="text-xs font-semibold uppercase tracking-wider">Active Deployments</span>
-              <span className="p-2 rounded-lg bg-emerald-50 text-emerald-600">
+              <span className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600">
                 <CheckCircle2 className="w-4 h-4" />
               </span>
             </div>
             <div className="text-2xl font-bold text-slate-900">{activeAssignments.length}</div>
-            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-              <span className="text-emerald-600 font-medium">Live on client sites</span> with locked rates
-            </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
+          <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
               <span className="text-xs font-semibold uppercase tracking-wider">Sites Covered</span>
-              <span className="p-2 rounded-lg bg-indigo-50 text-indigo-600">
+              <span className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
                 <Building2 className="w-4 h-4" />
               </span>
             </div>
             <div className="text-2xl font-bold text-slate-900">{activeSitesCovered}</div>
-            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-              Across {sites.length} total operational premises
-            </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
+          <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
               <span className="text-xs font-semibold uppercase tracking-wider">Unassigned Workforce</span>
-              <span className="p-2 rounded-lg bg-purple-50 text-[#6C5CE7]">
+              <span className="p-1.5 rounded-lg bg-purple-50 text-[#6C5CE7]">
                 <UserX className="w-4 h-4" />
               </span>
             </div>
             <div className="text-2xl font-bold text-slate-900">{unassignedEmployees.length}</div>
-            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-              Active employees available for immediate deployment
-            </div>
           </div>
 
-          <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-slate-500 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Historical Records</span>
-              <span className="p-2 rounded-lg bg-amber-50 text-amber-600">
+          <div className="bg-white rounded-xl p-4 border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between text-slate-500 mb-1">
+              <span className="text-xs font-semibold uppercase tracking-wider">Total Assignments</span>
+              <span className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
                 <History className="w-4 h-4" />
               </span>
             </div>
             <div className="text-2xl font-bold text-slate-900">{assignments.length}</div>
-            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-              Audit-safe assignments & transfers
-            </div>
           </div>
         </div>
 

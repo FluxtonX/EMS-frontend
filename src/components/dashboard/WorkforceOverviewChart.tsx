@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { ArrowUpRight } from 'lucide-react';
 
+import { useWorkforceStore } from '@/lib/stores/workforceStore';
+
 interface MonthlyDataPoint {
   month: string;
   onSite: number;
@@ -10,31 +12,29 @@ interface MonthlyDataPoint {
   efficiency: number;
 }
 
-const defaultData: MonthlyDataPoint[] = [
-  { month: 'Jan', onSite: 28, standby: 8, efficiency: 89 },
-  { month: 'Feb', onSite: 31, standby: 9, efficiency: 91 },
-  { month: 'Mar', onSite: 30, standby: 10, efficiency: 90 },
-  { month: 'Apr', onSite: 35, standby: 12, efficiency: 93 },
-  { month: 'May', onSite: 34, standby: 11, efficiency: 92 },
-  { month: 'Jun', onSite: 39, standby: 13, efficiency: 95 },
-  { month: 'Jul', onSite: 42, standby: 15, efficiency: 96 },
-  { month: 'Aug', onSite: 40, standby: 14, efficiency: 94 },
-  { month: 'Sep', onSite: 44, standby: 16, efficiency: 97 },
-  { month: 'Oct', onSite: 48, standby: 17, efficiency: 98 },
-  { month: 'Nov', onSite: 46, standby: 15, efficiency: 95 },
-  { month: 'Dec', onSite: 50, standby: 18, efficiency: 99 },
-];
-
 export function WorkforceOverviewChart() {
+  const { employees, sites } = useWorkforceStore();
+  const totalEmp = employees.length;
+  const totalSites = sites.length;
+
   const [activeRange, setActiveRange] = useState<'12M' | '6M' | '30D'>('12M');
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dynamicData: MonthlyDataPoint[] = months.map((m, idx) => {
+    const factor = totalEmp > 0 ? (idx + 1) / 12 : 0;
+    const onSite = Math.round(totalEmp * (0.7 + factor * 0.3));
+    const standby = Math.max(0, totalEmp - onSite);
+    const efficiency = totalEmp > 0 ? Math.min(100, 85 + Math.round(factor * 15)) : 0;
+    return { month: m, onSite, standby, efficiency };
+  });
+
   const displayData =
     activeRange === '6M'
-      ? defaultData.slice(6)
+      ? dynamicData.slice(6)
       : activeRange === '30D'
-      ? defaultData.slice(8)
-      : defaultData;
+      ? dynamicData.slice(8)
+      : dynamicData;
 
   const svgWidth = 640;
   const svgHeight = 220;

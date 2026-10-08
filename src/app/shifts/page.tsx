@@ -34,12 +34,12 @@ import {
   fetchEligibleEmployeesApi,
 } from '@/lib/api/shifts';
 import { fetchSites } from '@/lib/api/sites';
-import { mockShifts, mockSites } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function ShiftsPage() {
+  const { session, isLoading: authLoading } = useAuth();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
-  const [isUsingMockData, setIsUsingMockData] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,23 +89,22 @@ export default function ShiftsPage() {
         fetchSites(),
       ]);
 
-      const hasReal = Boolean(shiftsData && shiftsData.length > 0);
-      setIsUsingMockData(!hasReal);
-      setShifts(hasReal ? shiftsData : mockShifts);
-      setSites(sitesData && sitesData.length > 0 ? sitesData : mockSites);
+      setShifts(shiftsData || []);
+      setSites(sitesData || []);
     } catch (err: any) {
-      // In case of error or empty initial database, fallback to mock data
-      setIsUsingMockData(true);
-      setShifts(mockShifts);
-      setSites(mockSites);
+      setError(err?.message || 'Failed to load shifts from database.');
+      setShifts([]);
+      setSites([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, [selectedDate, selectedSiteId, statusFilter, viewMode]);
+    if (!authLoading && session) {
+      loadData();
+    }
+  }, [authLoading, session, selectedDate, selectedSiteId, statusFilter, viewMode]);
 
   const selectedSiteJobs: SiteJob[] = useMemo(() => {
     if (!formData.siteId) return [];
@@ -257,24 +256,7 @@ export default function ShiftsPage() {
             Schedule Shift
           </Button>
         }
-        secondaryActions={
-          isUsingMockData ? (
-            <Badge variant="info" size="sm" className="gap-1">
-              <Info className="h-3 w-3 text-[#6C5CE7]" />
-              Sample Rota Preview
-            </Badge>
-          ) : undefined
-        }
       >
-
-        {isUsingMockData && (
-          <div className="p-3 rounded-lg bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B]">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
-              <span>Showing sample security rota and guard deployments. Click &quot;Schedule Shift&quot; to book your first live shift.</span>
-            </div>
-          </div>
-        )}
 
         {/* Date Navigator & Controls */}
         <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-lg border border-[#E5E3F2] shadow-sm">

@@ -20,7 +20,6 @@ import {
   X,
   Edit3,
   Building2,
-  Sparkles,
   Info,
 } from 'lucide-react';
 import {
@@ -33,8 +32,10 @@ import {
   TimesheetEntry,
   TimesheetStatus,
 } from '@/lib/api/timesheets';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function TimesheetsPage() {
+  const { session, isLoading: authLoading } = useAuth();
   const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +73,7 @@ export default function TimesheetsPage() {
         periodStart,
         periodEnd,
       });
-      setTimesheets(data);
+      setTimesheets(data || []);
     } catch (err: any) {
       setError(err?.message || 'Failed to load timesheets records.');
     } finally {
@@ -81,8 +82,10 @@ export default function TimesheetsPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, [statusFilter, periodStart, periodEnd]);
+    if (!authLoading && session) {
+      loadData();
+    }
+  }, [authLoading, session, statusFilter, periodStart, periodEnd]);
 
   // Aggregate KPI Metrics
   const stats = timesheets.reduce(
@@ -224,9 +227,7 @@ export default function TimesheetsPage() {
         subtitle={
           <div className="flex items-center gap-2">
             <span>Verified work hour calculations, unpaid break deductions, overtime thresholds, and payroll rate locking.</span>
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA]">
-              Phase 12
-            </span>
+            
           </div>
         }
         breadcrumbs={[
@@ -237,7 +238,7 @@ export default function TimesheetsPage() {
           <Button
             variant="primary"
             size="sm"
-            leftIcon={<Sparkles className="h-4 w-4" />}
+            leftIcon={<FileSpreadsheet className="h-4 w-4" />}
             onClick={() => setIsGenerateOpen(true)}
             className="bg-[#6C5CE7] hover:bg-[#5846DB] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.05)] text-xs h-[38px] px-4 font-semibold"
           >
@@ -371,7 +372,7 @@ export default function TimesheetsPage() {
               onClick={() => setIsGenerateOpen(true)}
               className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-[#6C5CE7] hover:bg-[#5846DB] text-white rounded-xl text-xs font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
             >
-              <Sparkles className="h-3.5 w-3.5" />
+              <FileSpreadsheet className="h-3.5 w-3.5" />
               Generate Timesheets Now
             </button>
           </div>
@@ -469,7 +470,7 @@ export default function TimesheetsPage() {
               <div className="flex items-center justify-between border-b border-[#E5E3F2] pb-3">
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-lg bg-[#EDE9FE] flex items-center justify-center text-[#6C5CE7]">
-                    <Sparkles className="h-4 w-4" />
+                    <FileSpreadsheet className="h-4 w-4" />
                   </div>
                   <h3 className="text-base font-bold text-[#171A2B]">Generate Period Timesheets</h3>
                 </div>

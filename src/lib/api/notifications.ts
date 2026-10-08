@@ -1,18 +1,6 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+import { getAuthHeaders } from './authHeaders';
 
-function getAuthHeaders(): Record<string, string> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (typeof window !== 'undefined') {
-    try {
-      const session = localStorage.getItem('workforce_auth_session');
-      if (session) {
-        const parsed = JSON.parse(session);
-        if (parsed.accessToken) headers['Authorization'] = `Bearer ${parsed.accessToken}`;
-      }
-    } catch { /* noop */ }
-  }
-  return headers;
-}
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
 export type NotificationType =
   | 'licence_expiry'

@@ -37,13 +37,13 @@ import {
 } from '@/lib/api/attendance';
 import { fetchSites } from '@/lib/api/sites';
 import { fetchEmployees } from '@/lib/api/employees';
-import { mockAttendanceRecords, mockSites, mockEmployees } from '@/lib/mockData';
+import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function AttendancePage() {
+  const { session, isLoading: authLoading } = useAuth();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [isUsingMockData, setIsUsingMockData] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,25 +97,24 @@ export default function AttendancePage() {
         fetchEmployees({ status: 'active', limit: 100 }),
       ]);
 
-      const hasReal = Boolean(attData && attData.length > 0);
-      setIsUsingMockData(!hasReal);
-      setRecords(hasReal ? attData : mockAttendanceRecords);
-      setSites(sitesData && sitesData.length > 0 ? sitesData : mockSites);
-      setEmployees(empsData?.items && empsData.items.length > 0 ? empsData.items : mockEmployees);
+      setRecords(attData || []);
+      setSites(sitesData || []);
+      setEmployees(empsData?.items || []);
     } catch (err: any) {
-      // In case of error or empty initial database, fallback to mock data
-      setIsUsingMockData(true);
-      setRecords(mockAttendanceRecords);
-      setSites(mockSites);
-      setEmployees(mockEmployees);
+      setError(err?.message || 'Failed to load attendance records from database.');
+      setRecords([]);
+      setSites([]);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadData();
-  }, [selectedDate, selectedSiteId, statusFilter, varianceFilter]);
+    if (!authLoading && session) {
+      loadData();
+    }
+  }, [authLoading, session, selectedDate, selectedSiteId, statusFilter, varianceFilter]);
 
   // Operational metrics
   const stats = useMemo(() => {
@@ -352,24 +351,7 @@ export default function AttendancePage() {
             Record Clock-In
           </Button>
         }
-        secondaryActions={
-          isUsingMockData ? (
-            <Badge variant="info" size="sm" className="gap-1">
-              <Info className="h-3 w-3 text-[#6C5CE7]" />
-              Live Tracking Preview
-            </Badge>
-          ) : undefined
-        }
       >
-
-        {isUsingMockData && (
-          <div className="my-4 p-4 rounded-xl bg-[#F5F3FF] border border-[#D5D0FA] flex items-center justify-between text-xs text-[#171A2B] shadow-[inset_0_1px_0_rgba(255,255,255,0.8)]">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2 w-2 rounded-full bg-[#6C5CE7] animate-pulse" />
-              <span>Showing sample geofenced attendance logs. When guards clock in via mobile or portal, live records will display here.</span>
-            </div>
-          </div>
-        )}
 
         {/* Live Operational Metrics Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 my-6">

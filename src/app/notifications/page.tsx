@@ -19,7 +19,6 @@ import {
   Search,
   Filter,
   RefreshCw,
-  Sparkles,
   AlertTriangle,
 } from 'lucide-react';
 import {
