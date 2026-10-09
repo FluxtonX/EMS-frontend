@@ -13,6 +13,8 @@ import {
   ShieldCheck,
   Save,
   CheckCircle2,
+  Camera,
+  Upload,
 } from 'lucide-react';
 import { Button, Input, Badge, TableSkeleton } from '@/components/ui';
 import { toast } from '@/lib/toastStore';
@@ -26,6 +28,7 @@ export default function EmployeeProfilePage() {
   });
 
   // Form State
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [phone, setPhone] = useState('');
   const [line1, setLine1] = useState('');
   const [city, setCity] = useState('');
@@ -36,6 +39,7 @@ export default function EmployeeProfilePage() {
 
   useEffect(() => {
     if (profile) {
+      setAvatarUrl(profile.avatarUrl || '');
       setPhone(profile.phone || '');
       setLine1(profile.address?.line1 || '');
       setCity(profile.address?.city || '');
@@ -46,9 +50,27 @@ export default function EmployeeProfilePage() {
     }
   }, [profile]);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setAvatarUrl(reader.result);
+        toast.success('Photo preview ready. Click "Save Profile Changes" to apply.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const updateMutation = useMutation({
     mutationFn: () =>
       updateMyProfile({
+        avatarUrl: avatarUrl || undefined,
         phone: phone || undefined,
         address: {
           line1,
@@ -62,7 +84,7 @@ export default function EmployeeProfilePage() {
         },
       }),
     onSuccess: () => {
-      toast.success('Your profile contact information has been updated.');
+      toast.success('Your profile & photo have been updated.');
       queryClient.invalidateQueries({ queryKey: ['my-profile'] });
       queryClient.invalidateQueries({ queryKey: ['my-overview'] });
     },
@@ -102,6 +124,55 @@ export default function EmployeeProfilePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Profile Photo Card */}
+        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
+          <span className="text-xs font-bold uppercase tracking-wider text-slate-500 block mb-4">
+            Official Profile Photo
+          </span>
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="relative group">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-2 border-[#6C5CE7]/30 bg-slate-100 flex items-center justify-center shadow-inner">
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-[#6C5CE7]">
+                    {profile?.firstName?.charAt(0)}{profile?.lastName?.charAt(0)}
+                  </span>
+                )}
+              </div>
+              <label
+                htmlFor="avatar-upload"
+                className="absolute bottom-0 right-0 p-2 bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white rounded-full shadow-md cursor-pointer transition-transform hover:scale-105"
+                title="Change Photo"
+              >
+                <Camera className="w-4 h-4" />
+              </label>
+              <input
+                id="avatar-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+            </div>
+            <div className="space-y-1.5 text-center sm:text-left">
+              <h3 className="text-base font-bold text-slate-900">
+                {profile?.firstName} {profile?.lastName}
+              </h3>
+              <p className="text-xs text-slate-500">
+                Upload your official staff picture. This photo will be visible to company owners, managers, and dispatch operators.
+              </p>
+              <label
+                htmlFor="avatar-upload"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#6C5CE7] bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg cursor-pointer transition-colors mt-2"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                {avatarUrl ? 'Change Profile Photo' : 'Upload Profile Photo'}
+              </label>
+            </div>
+          </div>
+        </div>
+
         {/* Card 1: Official Employment Identity (Read-only) */}
         <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">

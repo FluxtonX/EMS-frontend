@@ -138,3 +138,20 @@ export async function resendEmployeeInviteApi(id: string, token?: string): Promi
   return json.data || json;
 }
 
+export async function deleteEmployeeApi(id: string, token?: string): Promise<{ message: string }> {
+  const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(token),
+  });
+
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.message || errorJson?.error?.message || 'Failed to delete employee.');
+  }
+
+  apiCache.invalidate('employees');
+  const json = await res.json();
+  return json.data || json;
+}
+
+

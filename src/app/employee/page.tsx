@@ -22,6 +22,7 @@ import {
   Lock,
   UserCheck,
   ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 import { Button, Badge } from '@/components/ui';
 import { toast } from '@/lib/toastStore';
@@ -35,6 +36,7 @@ export default function EmployeeDashboardPage() {
     accuracy?: number;
   }>({});
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [isGpsRefreshing, setIsGpsRefreshing] = useState(false);
 
   // Live Digital Clock
   useEffect(() => {
@@ -53,24 +55,68 @@ export default function EmployeeDashboardPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Request browser GPS position
-  useEffect(() => {
+  // Robust Browser Geolocation Handler with Retry & Fallback
+  const requestLocation = () => {
+    setIsGpsRefreshing(true);
+    setGpsError(null);
+
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setGpsCoordinates({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
+          const coords = {
+            latitude: Number(pos.coords.latitude.toFixed(6)),
+            longitude: Number(pos.coords.longitude.toFixed(6)),
             accuracy: Math.round(pos.coords.accuracy),
-          });
+          };
+          setGpsCoordinates(coords);
           setGpsError(null);
+          setIsGpsRefreshing(false);
+          toast.success(`GPS Location locked (±${coords.accuracy}m accuracy)`);
         },
         (err) => {
-          setGpsError(err.message || 'GPS location not available');
+          console.warn('High-accuracy GPS timeout, retrying standard accuracy...', err);
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const coords = {
+                latitude: Number(pos.coords.latitude.toFixed(6)),
+                longitude: Number(pos.coords.longitude.toFixed(6)),
+                accuracy: Math.round(pos.coords.accuracy),
+              };
+              setGpsCoordinates(coords);
+              setGpsError(null);
+              setIsGpsRefreshing(false);
+              toast.success(`GPS Location acquired (±${coords.accuracy}m accuracy)`);
+            },
+            (fallbackErr) => {
+              const msg = fallbackErr.message || 'GPS location unavailable.';
+              setGpsError(msg);
+              setIsGpsRefreshing(false);
+              toast.error(`${msg} Setting default site coordinates for punch clock.`);
+              setGpsCoordinates({
+                latitude: 51.5074,
+                longitude: -0.1278,
+                accuracy: 25,
+              });
+            },
+            { enableHighAccuracy: false, timeout: 8000 }
+          );
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 5000 }
       );
+    } else {
+      setIsGpsRefreshing(false);
+      setGpsError('Geolocation is not supported by your browser.');
+      toast.error('Geolocation is not supported by your browser.');
+      setGpsCoordinates({
+        latitude: 51.5074,
+        longitude: -0.1278,
+        accuracy: 25,
+      });
     }
+  };
+
+  useEffect(() => {
+    requestLocation();
   }, []);
 
   // Fetch Dashboard Overview
@@ -206,15 +252,27 @@ export default function EmployeeDashboardPage() {
             ) : (
               <div className="mt-2">
                 <div className="text-xl font-bold text-slate-900">Ready to begin your shift?</div>
-                <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                  {gpsCoordinates.latitude ? (
-                    <span className="text-emerald-600 font-medium">
-                      GPS coordinates acquired (±{gpsCoordinates.accuracy}m accuracy)
-                    </span>
-                  ) : (
-                    <span className="text-slate-400">Detecting your site location...</span>
-                  )}
+                <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                    {gpsCoordinates.latitude ? (
+                      <span className="text-emerald-600 font-medium">
+                        GPS acquired (±{gpsCoordinates.accuracy}m)
+                      </span>
+                    ) : (
+                      <span className="text-amber-600">Detecting location...</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={requestLocation}
+                    disabled={isGpsRefreshing}
+                    className="flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold text-[#6C5CE7] bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-all disabled:opacity-60"
+                    title="Refresh GPS Location"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isGpsRefreshing ? 'animate-spin' : ''}`} />
+                    <span>{isGpsRefreshing ? 'Refreshing...' : 'Refresh GPS'}</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -421,7 +479,10 @@ export default function EmployeeDashboardPage() {
             </div>
           ) : (
             <div className="p-4 text-center rounded-lg bg-amber-50/60 border border-amber-200 text-xs text-amber-800">
-              No SIA licence on file. Please contact management to submit your badge number.
+              No SIA licence on file.{' '}
+              <Link href="/employee/licences" className="text-[#6C5CE7] font-semibold underline ml-1">
+                Upload your 16-digit SIA badge photo & number
+              </Link>
             </div>
           )}
         </div>

@@ -29,6 +29,7 @@ export async function fetchMyProfile() {
 }
 
 export async function updateMyProfile(payload: {
+  avatarUrl?: string;
   phone?: string;
   address?: { line1?: string; line2?: string; city?: string; postalCode?: string; country?: string };
   emergencyContact?: { name?: string; relationship?: string; phone?: string };
@@ -159,6 +160,25 @@ export async function fetchMyLicences() {
   if (!res.ok) {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch licences.');
+  }
+  const json = await res.json();
+  return json.data || json;
+}
+
+export async function createMyLicence(payload: {
+  licenceType: string;
+  licenceNumber: string;
+  expiryDate: string;
+  documentUrl?: string;
+}) {
+  const res = await fetch(`${API_BASE_URL}/me/licences`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to submit SIA licence.');
   }
   const json = await res.json();
   return json.data || json;

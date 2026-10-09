@@ -137,8 +137,9 @@ function EmployeesContent() {
     postalCode: '',
     country: 'United Kingdom',
     emergencyName: '',
-    emergencyRelationship: 'Spouse',
+    emergencyRelationship: 'Emergency Contact',
     emergencyPhone: '',
+
 
     // Step 2: Employment
     employeeNumber: '',
@@ -156,12 +157,14 @@ function EmployeesContent() {
     assignmentStartDate: new Date().toISOString().split('T')[0],
 
     // Step 4: Account & Portal Access
+    password: '',
     sendInvitation: true,
     hasLicence: false,
     licenceType: 'SIA Door Supervisor',
     licenceNumber: '',
     licenceExpiryDate: '',
   });
+
 
   // Debounce search
   useEffect(() => {
@@ -403,7 +406,7 @@ function EmployeesContent() {
       postalCode: '',
       country: 'United Kingdom',
       emergencyName: '',
-      emergencyRelationship: 'Spouse',
+      emergencyRelationship: 'Emergency Contact',
       emergencyPhone: '',
       employeeNumber: '',
       isCustomEmployeeId: false,
@@ -416,6 +419,7 @@ function EmployeesContent() {
       assignmentSiteJobId: '',
       assignmentPayRate: '',
       assignmentStartDate: new Date().toISOString().split('T')[0],
+      password: '',
       sendInvitation: true,
       hasLicence: false,
       licenceType: 'SIA Door Supervisor',
@@ -435,6 +439,10 @@ function EmployeesContent() {
       }
       if (!formData.email.trim() || !formData.email.includes('@')) {
         toast.error('A valid email address is required.');
+        return;
+      }
+      if (!formData.password || !formData.password.trim()) {
+        toast.error('Password is required for employee portal login.');
         return;
       }
       if (!formData.phone.trim()) {
@@ -474,15 +482,17 @@ function EmployeesContent() {
       },
       emergencyContact: {
         name: emergencyName,
-        relationship: formData.emergencyRelationship.trim() || 'Spouse',
+        relationship: formData.emergencyRelationship.trim() || 'Emergency Contact',
         phone: emergencyPhone,
       },
       employmentStatus: formData.employmentStatus || 'active',
       employmentStartDate: formData.employmentStartDate,
       employmentType: formData.employmentType || 'full_time',
       positionTitle: formData.positionTitle || 'Security Officer',
+      password: formData.password.trim() || undefined,
       sendInvitation: formData.sendInvitation,
     };
+
 
     if (formData.isCustomEmployeeId && formData.employeeNumber.trim()) {
       payload.employeeNumber = formData.employeeNumber.trim();
@@ -496,10 +506,15 @@ function EmployeesContent() {
       };
     }
 
-    if (formData.hasLicence && formData.licenceNumber.trim()) {
+    if (formData.hasLicence) {
+      const cleanLic = formData.licenceNumber.replace(/\D/g, '');
+      if (cleanLic.length !== 16) {
+        toast.error(`SIA Licence number must be exactly 16 digits (currently ${cleanLic.length} digits).`);
+        return;
+      }
       payload.initialLicence = {
         licenceType: formData.licenceType,
-        licenceNumber: formData.licenceNumber.trim(),
+        licenceNumber: cleanLic,
         expiryDate: formData.licenceExpiryDate,
       };
     }
@@ -818,9 +833,13 @@ function EmployeesContent() {
                       {/* Gradient Ring Avatar */}
                       <div className="relative mb-3 flex h-16 w-16 items-center justify-center rounded-full p-0.5 shadow-md">
                         <div
-                          className={`flex h-full w-full items-center justify-center rounded-full bg-gradient-to-tr ${avatarGrad} text-white font-black text-lg tracking-wider ring-4 ring-white select-none`}
+                          className={`flex h-full w-full items-center justify-center rounded-full bg-gradient-to-tr ${avatarGrad} text-white font-black text-lg tracking-wider ring-4 ring-white select-none overflow-hidden`}
                         >
-                          {initials}
+                          {emp.avatarUrl ? (
+                            <img src={emp.avatarUrl} alt={`${emp.firstName} ${emp.lastName}`} className="w-full h-full object-cover" />
+                          ) : (
+                            initials
+                          )}
                         </div>
                       </div>
 
@@ -1149,6 +1168,21 @@ function EmployeesContent() {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-[#687086] mb-1">
+                      Account Password *
+                    </label>
+                    <Input
+                      type="password"
+                      required
+                      placeholder="Create login password"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#687086] mb-1">
                       Phone Number *
                     </label>
                     <Input
@@ -1158,17 +1192,16 @@ function EmployeesContent() {
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#687086] mb-1">
-                    Date of Birth *
-                  </label>
-                  <DatePicker
-                    required
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                  />
+                  <div>
+                    <label className="block text-xs font-semibold text-[#687086] mb-1">
+                      Date of Birth *
+                    </label>
+                    <DatePicker
+                      required
+                      value={formData.dateOfBirth}
+                      onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                    />
+                  </div>
                 </div>
 
                 <div className="pt-2 border-t border-[#F0EEF8]">
@@ -1533,16 +1566,24 @@ function EmployeesContent() {
                     />
                   </div>
 
-                  <div className="p-2.5 rounded bg-white/80 border border-[#E5E3F2] text-[11px] text-[#2D3748] space-y-1">
-                    <div className="font-semibold flex items-center gap-1.5 text-[#6C5CE7]">
-                      <Shield className="h-3.5 w-3.5" />
-                      Security Note: Company Admins Never Set Passwords
+                  <div className="p-3.5 rounded-lg border border-[#D5D0FA] bg-[#F8F7FF] space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-[#6C5CE7]" />
+                      <span className="text-xs font-bold text-[#171A2B]">Set Initial Employee Account Password</span>
                     </div>
-                    <p className="text-[#687086]">
-                      The employee will receive a single-use, cryptographically verified activation link valid for 7 days. They will choose their own secure password to access shifts, timesheets, and payslips.
+                    <p className="text-[11px] text-[#687086]">
+                      Create a password for <strong>{formData.email || 'this employee'}</strong> to enable immediate login to their workforce portal.
                     </p>
+                    <Input
+                      type="password"
+                      placeholder="Create account password (min 6 characters) *"
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="bg-white text-xs border-[#D5D0FA] focus:border-[#6C5CE7]"
+                    />
                   </div>
                 </div>
+
 
                 {/* SIA Licence Option */}
                 <div className="p-3.5 rounded-lg border border-[#E5E3F2] bg-white space-y-3">
@@ -1583,16 +1624,35 @@ function EmployeesContent() {
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-semibold text-[#687086] mb-1">
-                            Licence Number (16 Digits) *
-                          </label>
+                          <div className="flex items-center justify-between mb-1">
+                            <label className="block text-xs font-semibold text-[#687086]">
+                              16-Digit SIA Licence Number *
+                            </label>
+                            <span
+                              className={`text-[10px] font-mono font-bold ${
+                                formData.licenceNumber.length === 16 ? 'text-emerald-600' : 'text-slate-400'
+                              }`}
+                            >
+                              {formData.licenceNumber.length}/16
+                            </span>
+                          </div>
                           <Input
                             placeholder="1029384756102938"
                             value={formData.licenceNumber}
+                            maxLength={16}
                             onChange={(e) =>
-                              setFormData({ ...formData, licenceNumber: e.target.value })
+                              setFormData({
+                                ...formData,
+                                licenceNumber: e.target.value.replace(/\D/g, '').slice(0, 16),
+                              })
                             }
-                            className="h-8 text-xs"
+                            className={`h-8 text-xs font-mono tracking-wider ${
+                              formData.licenceNumber.length > 0 && formData.licenceNumber.length < 16
+                                ? 'border-amber-300 focus:border-amber-500'
+                                : formData.licenceNumber.length === 16
+                                ? 'border-emerald-400 focus:border-emerald-500'
+                                : ''
+                            }`}
                           />
                         </div>
                         <div>
@@ -1737,6 +1797,25 @@ function EmployeesContent() {
         >
           {selectedEmployee && (
             <div className="space-y-4">
+              {/* Profile Avatar Header */}
+              <div className="flex items-center gap-3.5 p-3 rounded-xl bg-white border border-[#E5E3F2] shadow-2xs">
+                <div className="h-12 w-12 rounded-full overflow-hidden bg-[#EDE9FE] flex items-center justify-center shrink-0 border border-[#D5D0FA]">
+                  {selectedEmployee.avatarUrl ? (
+                    <img src={selectedEmployee.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-bold text-[#6C5CE7]">
+                      {selectedEmployee.firstName?.[0]}{selectedEmployee.lastName?.[0]}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-[#171A2B]">
+                    {selectedEmployee.firstName} {selectedEmployee.lastName}
+                  </h3>
+                  <p className="text-xs text-[#687086] font-mono">#{selectedEmployee.employeeNumber} • {selectedEmployee.email}</p>
+                </div>
+              </div>
+
               {/* Profile Header Status */}
               <div className="grid grid-cols-3 gap-2 p-3 rounded bg-[#F5F3FF] border border-[#E5E3F2]">
                 <div>

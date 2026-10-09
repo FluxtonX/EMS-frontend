@@ -33,13 +33,15 @@ import {
   deleteShiftApi,
   fetchEligibleEmployeesApi,
 } from '@/lib/api/shifts';
-import { fetchSites } from '@/lib/api/sites';
+import { fetchSites, fetchSiteJobs } from '@/lib/api/sites';
 import { useAuth } from '@/lib/auth/AuthContext';
 
 export default function ShiftsPage() {
   const { session, isLoading: authLoading } = useAuth();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [selectedSiteJobs, setSelectedSiteJobs] = useState<SiteJob[]>([]);
+  const [isSiteJobsLoading, setIsSiteJobsLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -106,11 +108,18 @@ export default function ShiftsPage() {
     }
   }, [authLoading, session, selectedDate, selectedSiteId, statusFilter, viewMode]);
 
-  const selectedSiteJobs: SiteJob[] = useMemo(() => {
-    if (!formData.siteId) return [];
-    const site = sites.find((s) => s.id === formData.siteId);
-    return site?.jobs || [];
-  }, [formData.siteId, sites]);
+  // Dynamically fetch site operational roles & bill rates when siteId is selected
+  useEffect(() => {
+    if (!formData.siteId) {
+      setSelectedSiteJobs([]);
+      return;
+    }
+    setIsSiteJobsLoading(true);
+    fetchSiteJobs(formData.siteId)
+      .then((jobs) => setSelectedSiteJobs(jobs || []))
+      .catch(() => setSelectedSiteJobs([]))
+      .finally(() => setIsSiteJobsLoading(false));
+  }, [formData.siteId]);
 
   // Query eligible employees when site, role, date, times change
   useEffect(() => {
@@ -564,21 +573,34 @@ export default function ShiftsPage() {
                   <label className="block text-xs font-semibold text-[#171A2B] mb-1">
                     Operational Role & Bill Rate *
                   </label>
-                  <select
-                    value={formData.siteJobId}
-                    onChange={(e) => setFormData({ ...formData, siteJobId: e.target.value })}
-                    required
-                    disabled={!formData.siteId}
-                    className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] disabled:bg-[#F5F3FF]"
-                  >
-                    <option value="">-- Choose Job Role --</option>
-                    {selectedSiteJobs.map((sj: SiteJob) => (
-                      <option key={sj.id} value={sj.id}>
-                        {sj.jobType?.name || 'Role'} (£{sj.defaultPayRate}/hr pay • £
-                        {sj.billingRate}/hr bill)
+                  {isSiteJobsLoading ? (
+                    <div className="text-xs text-[#687086] py-1.5 flex items-center gap-2 border border-[#E5E3F2] rounded px-2.5 bg-[#F5F3FF]">
+                      <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#6C5CE7] border-t-transparent" />
+                      <span>Loading site operational roles & rates...</span>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.siteJobId}
+                      onChange={(e) => setFormData({ ...formData, siteJobId: e.target.value })}
+                      required
+                      disabled={!formData.siteId || selectedSiteJobs.length === 0}
+                      className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] disabled:bg-[#F5F3FF]"
+                    >
+                      <option value="">
+                        {!formData.siteId
+                          ? '-- Choose Site First --'
+                          : selectedSiteJobs.length === 0
+                          ? '-- No Roles Configured for Site --'
+                          : '-- Choose Job Role --'}
                       </option>
-                    ))}
-                  </select>
+                      {selectedSiteJobs.map((sj: SiteJob) => (
+                        <option key={sj.id} value={sj.id}>
+                          {sj.jobType?.name || 'Role'} (£{sj.defaultPayRate}/hr pay • £
+                          {sj.billingRate}/hr bill)
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 {/* Date & Time Range */}

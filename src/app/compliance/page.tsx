@@ -30,6 +30,9 @@ import {
   Trash2,
   ExternalLink,
   ChevronRight,
+  Eye,
+  X,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   fetchLicencesApi,
@@ -49,6 +52,7 @@ export default function CompliancePage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [verifyTarget, setVerifyTarget] = useState<EmployeeLicence | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // Form state for creating a new licence
   const [formData, setFormData] = useState({
@@ -56,6 +60,7 @@ export default function CompliancePage() {
     licenceType: 'SIA Door Supervisor',
     licenceNumber: '',
     expiryDate: '',
+    documentUrl: '',
   });
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -94,6 +99,7 @@ export default function CompliancePage() {
         licenceType: 'SIA Door Supervisor',
         licenceNumber: '',
         expiryDate: '',
+        documentUrl: '',
       });
       setFormError(null);
     },
@@ -101,6 +107,18 @@ export default function CompliancePage() {
       setFormError(err?.message || 'Failed to register licence.');
     },
   });
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setFormData((prev) => ({ ...prev, documentUrl: reader.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Verify licence mutation
   const verifyMutation = useMutation({
@@ -149,8 +167,13 @@ export default function CompliancePage() {
       setFormError('Please select a security officer.');
       return;
     }
-    if (!formData.licenceNumber.trim()) {
+    const cleanLicenceNumber = formData.licenceNumber.replace(/\D/g, '');
+    if (!cleanLicenceNumber) {
       setFormError('Licence number is required.');
+      return;
+    }
+    if (cleanLicenceNumber.length !== 16) {
+      setFormError(`SIA Licence number must be exactly 16 digits (currently ${cleanLicenceNumber.length} digits).`);
       return;
     }
     if (!formData.expiryDate) {
@@ -164,6 +187,7 @@ export default function CompliancePage() {
         licenceType: formData.licenceType,
         licenceNumber: formData.licenceNumber.trim(),
         expiryDate: formData.expiryDate,
+        documentUrl: formData.documentUrl || undefined,
       },
     });
   };
@@ -371,6 +395,7 @@ export default function CompliancePage() {
                     <th className="px-4 py-3">Security Officer</th>
                     <th className="px-4 py-3">Licence Category</th>
                     <th className="px-4 py-3">Licence Number</th>
+                    <th className="px-4 py-3">SIA Badge Photo</th>
                     <th className="px-4 py-3">Expiry Date</th>
                     <th className="px-4 py-3">Compliance Status</th>
                     <th className="px-4 py-3">Audit Verification</th>
@@ -408,6 +433,37 @@ export default function CompliancePage() {
                         <span className="font-mono text-xs font-medium text-[#171A2B] bg-[#F5F3FF] px-2 py-0.5 rounded border border-[#E5E3F2]">
                           {lic.licenceNumber}
                         </span>
+                      </td>
+
+                      {/* SIA Badge Photo */}
+                      <td className="px-4 py-3">
+                        {lic.documentUrl ? (
+                          <div className="flex items-center gap-2">
+                            <div
+                              onClick={() => setPreviewImageUrl(lic.documentUrl || null)}
+                              className="relative group w-10 h-10 rounded-lg overflow-hidden border-2 border-purple-200 bg-slate-100 shrink-0 cursor-pointer shadow-xs hover:ring-2 hover:ring-[#6C5CE7] transition-all"
+                              title="Click to view full licence photo"
+                            >
+                              <img
+                                src={lic.documentUrl}
+                                alt="SIA Badge"
+                                className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                              />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <Eye className="w-4 h-4" />
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImageUrl(lic.documentUrl || null)}
+                              className="text-[11px] text-[#6C5CE7] hover:underline font-semibold flex items-center gap-1"
+                            >
+                              <ImageIcon className="w-3 h-3" /> View
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">No Photo</span>
+                        )}
                       </td>
 
                       {/* Expiry */}
@@ -530,16 +586,43 @@ export default function CompliancePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-[#687086] mb-1">
-                16-Digit Licence Number *
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-[#687086]">
+                  16-Digit SIA Licence Number *
+                </label>
+                <span
+                  className={`text-[11px] font-mono font-bold ${
+                    formData.licenceNumber.length === 16 ? 'text-emerald-600' : 'text-slate-400'
+                  }`}
+                >
+                  {formData.licenceNumber.length}/16 digits
+                </span>
+              </div>
               <Input
                 placeholder="e.g. 1002938475610293"
                 value={formData.licenceNumber}
-                onChange={(e) => setFormData({ ...formData, licenceNumber: e.target.value })}
-                className="h-9 text-xs font-mono"
+                maxLength={16}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    licenceNumber: e.target.value.replace(/\D/g, '').slice(0, 16),
+                  })
+                }
+                className={`h-9 text-xs font-mono tracking-wider ${
+                  formData.licenceNumber.length > 0 && formData.licenceNumber.length < 16
+                    ? 'border-amber-300 focus:border-amber-500'
+                    : formData.licenceNumber.length === 16
+                    ? 'border-emerald-400 focus:border-emerald-500'
+                    : ''
+                }`}
                 required
               />
+              {formData.licenceNumber.length > 0 && formData.licenceNumber.length < 16 && (
+                <p className="text-[11px] text-amber-600 mt-1 flex items-center gap-1 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Must be exactly 16 digits ({16 - formData.licenceNumber.length} more needed)
+                </p>
+              )}
             </div>
 
             <div>
@@ -595,6 +678,31 @@ export default function CompliancePage() {
             }
           >
             <div className="space-y-3 text-xs">
+              {verifyTarget.documentUrl && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[#687086] font-semibold block">Uploaded SIA Licence Badge Photo:</span>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewImageUrl(verifyTarget.documentUrl || null)}
+                      className="text-[11px] text-[#6C5CE7] hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> Enlarge Photo
+                    </button>
+                  </div>
+                  <div
+                    onClick={() => setPreviewImageUrl(verifyTarget.documentUrl || null)}
+                    className="rounded-xl overflow-hidden border border-[#D5D0FA] bg-slate-950 flex items-center justify-center p-2 max-h-64 cursor-pointer group hover:ring-2 hover:ring-[#6C5CE7] transition-all"
+                    title="Click to view full size"
+                  >
+                    <img
+                      src={verifyTarget.documentUrl}
+                      alt="SIA Licence Badge"
+                      className="max-h-60 w-auto object-contain rounded transition-transform group-hover:scale-105"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="p-3 bg-[#F5F3FF] rounded border border-[#D5D0FA] space-y-1.5">
                 <div className="flex justify-between">
                   <span className="text-[#687086]">Security Officer:</span>
@@ -620,6 +728,34 @@ export default function CompliancePage() {
               </p>
             </div>
           </Modal>
+        )}
+
+        {/* Full Image Preview Modal */}
+        {previewImageUrl && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+            <div className="relative bg-white rounded-2xl max-w-2xl w-full p-4 border border-slate-200 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[#6C5CE7]" />
+                  Uploaded SIA Licence Badge Photo
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setPreviewImageUrl(null)}
+                  className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="rounded-xl overflow-hidden bg-slate-950 flex items-center justify-center max-h-[75vh]">
+                <img
+                  src={previewImageUrl}
+                  alt="SIA Licence Full Preview"
+                  className="max-h-[75vh] w-auto object-contain"
+                />
+              </div>
+            </div>
+          </div>
         )}
       </PageContainer>
     </AppShell>

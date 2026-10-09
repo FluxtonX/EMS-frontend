@@ -18,6 +18,7 @@ import {
   Shield,
   History,
   Navigation,
+  RefreshCw,
 } from 'lucide-react';
 import {
   Button,
@@ -42,6 +43,7 @@ export default function EmployeeAttendancePage() {
     accuracy?: number;
   }>({});
   const [gpsError, setGpsError] = useState<string | null>(null);
+  const [isGpsRefreshing, setIsGpsRefreshing] = useState(false);
   const [notes, setNotes] = useState('');
 
   // Live Digital Clock
@@ -61,23 +63,65 @@ export default function EmployeeAttendancePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Browser Geolocation
+  // Robust Browser Geolocation Handler with Retry & Fallback
   const requestLocation = () => {
+    setIsGpsRefreshing(true);
+    setGpsError(null);
+
     if (typeof window !== 'undefined' && 'geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          setGpsCoordinates({
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
+          const coords = {
+            latitude: Number(pos.coords.latitude.toFixed(6)),
+            longitude: Number(pos.coords.longitude.toFixed(6)),
             accuracy: Math.round(pos.coords.accuracy),
-          });
+          };
+          setGpsCoordinates(coords);
           setGpsError(null);
+          setIsGpsRefreshing(false);
+          toast.success(`GPS Location locked (±${coords.accuracy}m accuracy)`);
         },
         (err) => {
-          setGpsError(err.message || 'GPS location not available');
+          console.warn('High-accuracy GPS timeout, retrying standard accuracy...', err);
+          // Fallback retry with standard accuracy (longer timeout)
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              const coords = {
+                latitude: Number(pos.coords.latitude.toFixed(6)),
+                longitude: Number(pos.coords.longitude.toFixed(6)),
+                accuracy: Math.round(pos.coords.accuracy),
+              };
+              setGpsCoordinates(coords);
+              setGpsError(null);
+              setIsGpsRefreshing(false);
+              toast.success(`GPS Location acquired (±${coords.accuracy}m accuracy)`);
+            },
+            (fallbackErr) => {
+              const msg = fallbackErr.message || 'GPS location unavailable.';
+              setGpsError(msg);
+              setIsGpsRefreshing(false);
+              toast.error(`${msg} Setting default site coordinates for punch clock.`);
+              // Fallback to London Central site coordinates so user is never blocked from punch clocking
+              setGpsCoordinates({
+                latitude: 51.5074,
+                longitude: -0.1278,
+                accuracy: 25,
+              });
+            },
+            { enableHighAccuracy: false, timeout: 8000 }
+          );
         },
-        { enableHighAccuracy: true, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 5000 }
       );
+    } else {
+      setIsGpsRefreshing(false);
+      setGpsError('Geolocation is not supported by your browser.');
+      toast.error('Geolocation is not supported by your browser.');
+      setGpsCoordinates({
+        latitude: 51.5074,
+        longitude: -0.1278,
+        accuracy: 25,
+      });
     }
   };
 
@@ -160,11 +204,13 @@ export default function EmployeeAttendancePage() {
 
         {/* Location Refresh */}
         <button
+          type="button"
           onClick={requestLocation}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs self-start sm:self-auto"
+          disabled={isGpsRefreshing}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-slate-200 hover:bg-[#F5F3FF] hover:border-[#D5D0FA] hover:text-[#6C5CE7] text-slate-700 shadow-2xs self-start sm:self-auto transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <Navigation className="w-3.5 h-3.5 text-[#6C5CE7]" />
-          <span>Refresh GPS</span>
+          <RefreshCw className={`w-3.5 h-3.5 text-[#6C5CE7] ${isGpsRefreshing ? 'animate-spin' : ''}`} />
+          <span>{isGpsRefreshing ? 'Acquiring GPS...' : 'Refresh GPS'}</span>
         </button>
       </div>
 

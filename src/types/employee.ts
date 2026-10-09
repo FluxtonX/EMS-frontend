@@ -21,6 +21,7 @@ export interface EmployeeLicence {
   licenceType: string;
   licenceNumber: string;
   expiryDate: string;
+  documentUrl?: string;
   status: LicenceStatus;
   verifiedAt?: string;
 }
@@ -40,6 +41,7 @@ export interface Employee {
   id: string;
   companyId: string;
   userId?: string;
+  avatarUrl?: string;
   employeeNumber: string;
   firstName: string;
   lastName: string;

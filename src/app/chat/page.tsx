@@ -10,6 +10,7 @@ import {
   fetchChatConversationByEmployee,
   fetchChatMessages,
   sendChatMessage,
+  markConversationAsReadApi,
   ChatConversation,
   ChatMessage,
 } from '@/lib/api/chat';
@@ -62,12 +63,13 @@ function CompanyChatContent() {
   const targetEmployeeId = searchParams.get('employeeId');
   const queryClient = useQueryClient();
 
-  const [showQuickReplies, setShowQuickReplies] = useState(true);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [currentActiveConv, setCurrentActiveConv] = useState<ChatConversation | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
   const [isStartingChat, setIsStartingChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
 
   const { employees: storeEmployees, fetchEmployees: syncEmployees } = useWorkforceStore();
 
@@ -105,15 +107,18 @@ function CompanyChatContent() {
     try {
       const conv = await fetchChatConversationByEmployee(empId);
       if (conv) {
+        setCurrentActiveConv(conv);
+        setSelectedConversationId(conv.id);
         queryClient.setQueryData(['chat-conversations'], (old: ChatConversation[] = []) => {
           const exists = old.some((c) => c.id === conv.id);
           if (exists) return old.map((c) => (c.id === conv.id ? conv : c));
           return [conv, ...old];
         });
-        setSelectedConversationId(conv.id);
-        setSearchQuery('');
         queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
+        queryClient.invalidateQueries({ queryKey: ['chat-messages', conv.id] });
       }
+    } catch (err) {
+      console.error('Failed to start chat with participant:', err);
     } finally {
       setIsStartingChat(false);
     }
@@ -130,10 +135,23 @@ function CompanyChatContent() {
   useEffect(() => {
     if (!selectedConversationId && conversations.length > 0 && !targetEmployeeId) {
       setSelectedConversationId(conversations[0].id);
+      setCurrentActiveConv(conversations[0]);
     }
   }, [conversations, selectedConversationId, targetEmployeeId]);
 
-  const activeConversation = conversations.find((c) => c.id === selectedConversationId);
+  // Mark conversation as read when selected
+  useEffect(() => {
+    if (selectedConversationId) {
+      markConversationAsReadApi(selectedConversationId).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['unreadChatCount'] });
+        queryClient.setQueryData(['chat-conversations'], (old: ChatConversation[] = []) =>
+          old.map((c) => (c.id === selectedConversationId ? { ...c, unread_count: 0 } : c))
+        );
+      });
+    }
+  }, [selectedConversationId, queryClient]);
+
+  const activeConversation = conversations.find((c) => c.id === selectedConversationId) || currentActiveConv;
 
   // Poll active conversation messages every 2.5 seconds
   const { data: messages = [], isLoading: isMessagesLoading } = useQuery({
@@ -155,18 +173,33 @@ function CompanyChatContent() {
       return sendChatMessage(selectedConversationId, text);
     },
     onSuccess: (newMsg) => {
-      if (newMsg) {
+      if (newMsg && selectedConversationId) {
         setInputText('');
-        queryClient.setQueryData(['chat-messages', selectedConversationId], (old: ChatMessage[] = []) => [
-          ...old,
-          newMsg,
-        ]);
+        queryClient.setQueryData(['chat-messages', selectedConversationId], (old: ChatMessage[] = []) => {
+          const exists = old.some((m) => m.id === newMsg.id);
+          return exists ? old : [...old, newMsg];
+        });
+        queryClient.setQueryData(['chat-conversations'], (old: ChatConversation[] = []) => {
+          return old.map((c) =>
+            c.id === selectedConversationId
+              ? { ...c, last_message_preview: newMsg.text, last_message_at: newMsg.created_at }
+              : c
+          );
+        });
+        if (currentActiveConv && currentActiveConv.id === selectedConversationId) {
+          setCurrentActiveConv({
+            ...currentActiveConv,
+            last_message_preview: newMsg.text,
+            last_message_at: newMsg.created_at,
+          });
+        }
         queryClient.invalidateQueries({ queryKey: ['chat-messages', selectedConversationId] });
         queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
         queryClient.invalidateQueries({ queryKey: ['chat-unread-count'] });
       }
     },
   });
+
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -232,7 +265,7 @@ function CompanyChatContent() {
 
   return (
     <AppShell>
-      <div className="h-[calc(100vh-4rem)] p-4 sm:p-6 lg:p-7 max-w-7xl mx-auto flex flex-col">
+      <div className="h-[calc(100vh-4rem)] p-4 sm:p-6 lg:p-7 max-w-7xl mx-auto flex flex-col overflow-hidden">
         {/* Top Header */}
         <div className="flex items-center justify-between pb-4 shrink-0">
           <div>
@@ -244,9 +277,6 @@ function CompanyChatContent() {
                 <MessageSquare className="h-3 w-3" />
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Secure, real-time bidirectional messaging between company operations and deployed officers.
-            </p>
           </div>
           <div className="hidden sm:flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 border border-emerald-100 shadow-2xs">
@@ -257,11 +287,11 @@ function CompanyChatContent() {
         </div>
 
         {/* Main Glass Chat Box */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-12 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/85 shadow-[0_12px_40px_-8px_rgba(22,34,66,0.06)] overflow-hidden">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-12 rounded-3xl bg-white/80 backdrop-blur-2xl border border-white/85 shadow-[0_12px_40px_-8px_rgba(22,34,66,0.06)] overflow-hidden min-h-0">
           {/* Left Column: Officer Conversation List (4 Cols) */}
-          <div className="md:col-span-4 lg:col-span-4 border-r border-slate-200/70 flex flex-col bg-white/40">
+          <div className="md:col-span-4 lg:col-span-4 border-r border-slate-200/70 flex flex-col h-full bg-white/40 overflow-hidden">
             {/* Search filter */}
-            <div className="p-3.5 border-b border-slate-200/70">
+            <div className="p-3.5 border-b border-slate-200/70 shrink-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
@@ -274,7 +304,7 @@ function CompanyChatContent() {
               </div>
             </div>
 
-            {/* Conversation list */}
+            {/* Conversation list (Separately Scrollable) */}
             <div className="flex-1 overflow-y-auto divide-y divide-slate-100/80 p-2 space-y-1">
               {isConversationsLoading && conversations.length === 0 ? (
                 <div className="p-6 text-center text-xs text-slate-400">Loading directory...</div>
@@ -293,7 +323,10 @@ function CompanyChatContent() {
                     return (
                       <button
                         key={conv.id}
-                        onClick={() => setSelectedConversationId(conv.id)}
+                        onClick={() => {
+                          setSelectedConversationId(conv.id);
+                          setCurrentActiveConv(conv);
+                        }}
                         className={`w-full text-left p-3 rounded-2xl transition-all duration-200 flex items-start gap-3 select-none ${
                           isSelected
                             ? 'bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA] shadow-[inset_0_2px_4px_rgba(108,92,231,0.14)] font-semibold'
@@ -330,7 +363,7 @@ function CompanyChatContent() {
 
                           <div className="flex items-center justify-between mt-1">
                             <p className="text-[11px] text-slate-500 truncate max-w-[170px]">
-                              {conv.last_message_preview || 'Tap to chat with officer'}
+                              {conv.last_message_preview || 'Tap to chat'}
                             </p>
                             {conv.unread_count && conv.unread_count > 0 ? (
                               <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#6C5CE7] px-1 text-[9px] font-bold text-white shadow-xs">
@@ -383,12 +416,12 @@ function CompanyChatContent() {
             </div>
           </div>
 
-          {/* Right Column: Active Message Thread & Input (8 Cols) */}
-          <div className="md:col-span-8 lg:col-span-8 flex flex-col h-full bg-white/70">
+          {/* Right Column: Active Message Thread & Input (8 Cols - Separately Scrollable) */}
+          <div className="md:col-span-8 lg:col-span-8 flex flex-col h-full bg-white/70 overflow-hidden min-h-0">
             {activeConversation ? (
               <>
                 {/* Active Header */}
-                <div className="p-4 border-b border-slate-200/70 flex items-center justify-between bg-white/60 backdrop-blur-md">
+                <div className="p-4 border-b border-slate-200/70 flex items-center justify-between bg-white/60 backdrop-blur-md shrink-0">
                   <div className="flex items-center gap-3">
                     <div
                       className={`flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr ${getAvatarGradient(
@@ -441,12 +474,12 @@ function CompanyChatContent() {
                 </div>
 
                 {/* Message Scroll Area */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-50/50">
+                <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 bg-slate-50/50 min-h-0">
                   {isMessagesLoading && messages.length === 0 ? (
                     <div className="py-12 text-center text-xs text-slate-400">Loading conversation...</div>
                   ) : messages.length === 0 ? (
                     <div className="py-12 text-center text-xs text-slate-400">
-                     Start Conversation here.
+                      Start Conversation here.
                     </div>
                   ) : (
                     messages.map((msg) => {
@@ -462,7 +495,7 @@ function CompanyChatContent() {
                           className={`flex flex-col ${isCompany ? 'items-end' : 'items-start'}`}
                         >
                           <span className="text-[10px] text-slate-400 px-1 mb-1 font-medium">
-                            {isCompany ? 'You (Operations Dispatch)' : activeConversation.employee_name}
+                            {isCompany ? 'You' : activeConversation.employee_name}
                           </span>
                           <div
                             className={`max-w-[78%] sm:max-w-[68%] rounded-2xl px-4 py-2.5 text-xs shadow-2xs leading-relaxed ${
@@ -490,37 +523,10 @@ function CompanyChatContent() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                {/* Quick replies bar */}
-                {showQuickReplies && quickReplies.length > 0 && (
-                  <div className="px-4 py-2 border-t border-slate-200/60 bg-white/70 flex items-center justify-between gap-1.5">
-                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1 shrink-0">
-                        Quick Suggestions:
-                      </span>
-                      {quickReplies.map((reply) => (
-                        <button
-                          key={reply}
-                          onClick={() => setInputText(reply)}
-                          className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 hover:bg-[#EDE9FE] hover:text-[#6C5CE7] hover:border-[#D5D0FA] text-slate-600 border border-slate-200/60 whitespace-nowrap transition-colors"
-                        >
-                          {reply}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => setShowQuickReplies(false)}
-                      className="p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200/50 shrink-0 ml-2"
-                      title="Dismiss quick suggestions"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-
                 {/* Input bar */}
                 <form
                   onSubmit={handleSend}
-                  className="p-3.5 border-t border-slate-200/70 bg-white/90 flex items-center gap-2.5"
+                  className="p-3.5 border-t border-slate-200/70 bg-white/90 flex items-center gap-2.5 shrink-0"
                 >
                   <input
                     type="text"
@@ -549,6 +555,7 @@ function CompanyChatContent() {
                 </p>
               </div>
             )}
+
           </div>
         </div>
       </div>

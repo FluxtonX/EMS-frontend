@@ -9,6 +9,7 @@ export interface EmployeeLicence {
   licenceType: string;
   licenceNumber: string;
   expiryDate: string;
+  documentUrl?: string;
   status: LicenceStatus;
   verifiedAt?: string;
   verifiedBy?: string;
@@ -30,6 +31,7 @@ export interface CreateLicencePayload {
   licenceType: string;
   licenceNumber: string;
   expiryDate: string;
+  documentUrl?: string;
 }
 
 export interface UpdateLicencePayload {
