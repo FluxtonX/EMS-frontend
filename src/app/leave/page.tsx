@@ -89,6 +89,7 @@ function NewLeaveModal({
   onClose: () => void;
   onSubmit: (payload: CreateLeavePayload) => Promise<void>;
 }) {
+  const [durationMode, setDurationMode] = useState<'single' | 'range'>('single');
   const [form, setForm] = useState<CreateLeavePayload>({
     employeeId: '', leaveType: 'annual', startDate: '', endDate: '', reason: '',
   });
@@ -99,11 +100,13 @@ function NewLeaveModal({
     e.preventDefault();
     setError(null);
     if (!form.employeeId) return setError('Please select an employee');
-    if (!form.startDate || !form.endDate) return setError('Please select dates');
-    if (form.endDate < form.startDate) return setError('End date must be after start date');
+    if (!form.startDate) return setError('Please select date');
+    const finalEndDate = durationMode === 'single' ? form.startDate : form.endDate;
+    if (!finalEndDate) return setError('Please select end date');
+    if (finalEndDate < form.startDate) return setError('End date must be on or after start date');
     setSubmitting(true);
     try {
-      await onSubmit({ ...form, reason: form.reason || undefined });
+      await onSubmit({ ...form, endDate: finalEndDate, reason: form.reason || undefined });
       onClose();
     } catch (err: any) {
       setError(err.message);
@@ -162,20 +165,88 @@ function NewLeaveModal({
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-[#687086] mb-1.5">Start Date</label>
-              <input type="date" required value={form.startDate}
-                onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                className={inputCls} />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-[#687086] mb-1.5">End Date</label>
-              <input type="date" required value={form.endDate} min={form.startDate}
-                onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                className={inputCls} />
+          {/* Duration Mode Selection */}
+          <div>
+            <label className="block text-xs font-medium text-[#687086] mb-1.5">Duration</label>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-[#F5F3FF] rounded-lg border border-[#E5E3F2]">
+              <button
+                type="button"
+                onClick={() => {
+                  setDurationMode('single');
+                  if (form.startDate) setForm((f) => ({ ...f, endDate: f.startDate }));
+                }}
+                className={`py-1.5 text-xs font-medium rounded-md transition-all ${
+                  durationMode === 'single'
+                    ? 'bg-white text-[#6C5CE7] shadow-xs'
+                    : 'text-[#687086] hover:text-[#171A2B]'
+                }`}
+              >
+                Single Day (1 Day)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDurationMode('range')}
+                className={`py-1.5 text-xs font-medium rounded-md transition-all ${
+                  durationMode === 'range'
+                    ? 'bg-white text-[#6C5CE7] shadow-xs'
+                    : 'text-[#687086] hover:text-[#171A2B]'
+                }`}
+              >
+                Multiple Days (Range)
+              </button>
             </div>
           </div>
+
+          {durationMode === 'single' ? (
+            <div>
+              <label className="block text-xs font-medium text-[#687086] mb-1.5">Leave Date</label>
+              <input
+                type="date"
+                required
+                value={form.startDate}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, startDate: e.target.value, endDate: e.target.value }))
+                }
+                className={inputCls}
+              />
+              {form.startDate && (
+                <p className="text-[11px] text-[#6C5CE7] font-medium mt-1">
+                  Selected 1 single day: {formatDate(form.startDate)}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-[#687086] mb-1.5">Start Date</label>
+                <input
+                  type="date"
+                  required
+                  value={form.startDate}
+                  onChange={(e) => {
+                    const startVal = e.target.value;
+                    setForm((f) => ({
+                      ...f,
+                      startDate: startVal,
+                      endDate: !f.endDate || f.endDate < startVal ? startVal : f.endDate,
+                    }));
+                  }}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#687086] mb-1.5">End Date</label>
+                <input
+                  type="date"
+                  required
+                  value={form.endDate}
+                  min={form.startDate}
+                  onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-medium text-[#687086] mb-1.5">
@@ -487,16 +558,49 @@ export default function LeavePage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-[#171A2B]">{LEAVE_TYPE_LABELS[req.leaveType]}</td>
                       <td className="px-4 py-3 text-xs text-[#687086] whitespace-nowrap">
-                        {formatDate(req.startDate)} → {formatDate(req.endDate)}
+                        {req.startDate === req.endDate ? (
+                          <span className="inline-flex items-center gap-1.5 font-medium text-[#171A2B]">
+                            {formatDate(req.startDate)}
+                            <span className="text-[10px] text-[#6C5CE7] font-semibold bg-[#EDE9FE] px-1.5 py-0.5 rounded border border-[#D5D0FA]">
+                              1 Day
+                            </span>
+                          </span>
+                        ) : (
+                          <span>
+                            {formatDate(req.startDate)} → {formatDate(req.endDate)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-xs font-semibold text-[#171A2B]">{req.totalDays}d</span>
                       </td>
-                      <td className="px-4 py-3"><StatusBadge status={req.status} /></td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1 items-start">
+                          <StatusBadge status={req.status} />
+                          {req.reviewNotes &&
+                            (req.reviewNotes.includes('check-in') || req.reviewNotes.includes('worked')) && (
+                              <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="w-2.5 h-2.5" /> Worked Attendance
+                              </span>
+                            )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 max-w-[180px]">
-                        {req.reason
-                          ? <span className="text-xs text-[#687086] truncate block" title={req.reason}>{req.reason}</span>
-                          : <span className="text-xs text-[#D5D0FA]">—</span>}
+                        {req.reason ? (
+                          <span className="text-xs text-[#687086] truncate block" title={req.reason}>
+                            {req.reason}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-[#D5D0FA]">—</span>
+                        )}
+                        {req.reviewNotes && (
+                          <span
+                            className="text-[10px] text-slate-500 block truncate mt-0.5"
+                            title={req.reviewNotes}
+                          >
+                            {req.reviewNotes}
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 justify-end">

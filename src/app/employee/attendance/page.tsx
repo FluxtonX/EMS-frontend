@@ -140,7 +140,7 @@ export default function EmployeeAttendancePage() {
     queryFn: fetchMyOverview,
   });
 
-  // Clock In Mutation
+  // Check In Mutation
   const clockInMutation = useMutation({
     mutationFn: () =>
       clockInMyAttendance({
@@ -152,17 +152,17 @@ export default function EmployeeAttendancePage() {
         notes: notes || undefined,
       }),
     onSuccess: () => {
-      toast.success('Successfully clocked in. Duty commenced.');
+      toast.success('Successfully checked in. Duty commenced.');
       setNotes('');
       queryClient.invalidateQueries({ queryKey: ['my-attendance'] });
       queryClient.invalidateQueries({ queryKey: ['my-overview'] });
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to clock in.');
+      toast.error(err.message || 'Failed to check in.');
     },
   });
 
-  // Clock Out Mutation
+  // Check Out Mutation
   const clockOutMutation = useMutation({
     mutationFn: () =>
       clockOutMyAttendance({
@@ -172,13 +172,13 @@ export default function EmployeeAttendancePage() {
         notes: notes || undefined,
       }),
     onSuccess: () => {
-      toast.success('Successfully clocked out. Shift recorded.');
+      toast.success('Successfully checked out. Shift recorded.');
       setNotes('');
       queryClient.invalidateQueries({ queryKey: ['my-attendance'] });
       queryClient.invalidateQueries({ queryKey: ['my-overview'] });
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to clock out.');
+      toast.error(err.message || 'Failed to check out.');
     },
   });
 
@@ -283,7 +283,7 @@ export default function EmployeeAttendancePage() {
               disabled={clockOutMutation.isPending}
               className="w-full sm:w-64 h-14 bg-rose-600 hover:bg-rose-700 text-white font-bold text-base rounded-2xl shadow-md transition-transform active:scale-95"
             >
-              {clockOutMutation.isPending ? 'Logging Clock Out...' : 'CLOCK OUT'}
+              {clockOutMutation.isPending ? 'Logging Check Out...' : 'Check Out'}
             </Button>
           ) : (
             <Button
@@ -291,13 +291,13 @@ export default function EmployeeAttendancePage() {
               disabled={clockInMutation.isPending || !overview?.currentAssignment}
               className="w-full sm:w-64 h-14 bg-[#6C5CE7] hover:bg-[#5b4bc4] text-white font-bold text-base rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_4px_12px_rgba(108,92,231,0.35)] transition-transform active:scale-95 disabled:bg-slate-300 disabled:shadow-none"
             >
-              {clockInMutation.isPending ? 'Verifying Geofence...' : 'CLOCK IN'}
+              {clockInMutation.isPending ? 'Verifying Geofence...' : 'Check In'}
             </Button>
           )}
 
           {isClockedIn && activePunch?.clockInTime && (
             <p className="text-xs text-slate-500 mt-3">
-              Clocked in at{' '}
+              Checked in at{' '}
               <span className="font-semibold text-slate-800">
                 {new Date(activePunch.clockInTime).toLocaleTimeString('en-GB')}
               </span>
@@ -322,7 +322,7 @@ export default function EmployeeAttendancePage() {
           </div>
         ) : history.length === 0 ? (
           <div className="p-8 text-center text-slate-500 text-xs">
-            No past attendance punches found. Clock in to begin recording your timesheets.
+            No past attendance punches found. Check in to begin recording your timesheets.
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -330,8 +330,8 @@ export default function EmployeeAttendancePage() {
               <TableHeader>
                 <TableRow className="bg-slate-50/75 border-b border-slate-200 text-slate-600 font-semibold text-xs uppercase tracking-wider">
                   <TableHead>Date</TableHead>
-                  <TableHead>Clock In</TableHead>
-                  <TableHead>Clock Out</TableHead>
+                  <TableHead>Check In</TableHead>
+                  <TableHead>Check Out</TableHead>
                   <TableHead>Total Hours</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>

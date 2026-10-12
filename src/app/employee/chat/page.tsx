@@ -47,6 +47,7 @@ export default function EmployeeDispatchChatPage() {
   useEffect(() => {
     if (conversationId) {
       markConversationAsReadApi(conversationId).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['chat-unread-count'] });
         queryClient.invalidateQueries({ queryKey: ['unreadChatCount'] });
       });
     }
@@ -59,6 +60,23 @@ export default function EmployeeDispatchChatPage() {
     enabled: !!conversationId,
     refetchInterval: 2500,
   });
+
+  // Automatically mark incoming messages as read while employee chat is open
+  useEffect(() => {
+    if (conversationId && messages.length > 0) {
+      const hasUnread = messages.some((m: any) => {
+        const isFromCompany = m.sender_type === 'company' || m.sender_role?.toUpperCase() === 'COMPANY' || m.sender_role?.toUpperCase() !== 'EMPLOYEE';
+        const isUnread = m.status !== 'read' && m.is_read !== true;
+        return isFromCompany && isUnread;
+      });
+      if (hasUnread) {
+        markConversationAsReadApi(conversationId).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['chat-unread-count'] });
+          queryClient.invalidateQueries({ queryKey: ['unreadChatCount'] });
+        });
+      }
+    }
+  }, [conversationId, messages, queryClient]);
 
   // Auto scroll to bottom
   useEffect(() => {

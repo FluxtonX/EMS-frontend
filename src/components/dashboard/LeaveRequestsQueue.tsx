@@ -102,7 +102,10 @@ export function LeaveRequestsQueue() {
                     </div>
                     <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                       <CalendarOff className="h-3 w-3 text-slate-400 shrink-0" />
-                      <span className="font-semibold text-slate-700 capitalize">{item.leaveType}</span> · {item.startDate} – {item.endDate} ({item.totalDays} day{item.totalDays > 1 ? 's' : ''})
+                      <span className="font-semibold text-slate-700 capitalize">{item.leaveType}</span> ·{' '}
+                      {item.startDate === item.endDate
+                        ? `${item.startDate} (1 day)`
+                        : `${item.startDate} – ${item.endDate} (${item.totalDays} days)`}
                     </p>
                   </div>
                 </div>

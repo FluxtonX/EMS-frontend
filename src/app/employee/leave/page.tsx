@@ -33,6 +33,7 @@ export default function EmployeeLeavePage() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
   // Form State
+  const [durationMode, setDurationMode] = useState<'single' | 'range'>('single');
   const [leaveType, setLeaveType] = useState('annual');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -44,16 +45,19 @@ export default function EmployeeLeavePage() {
   });
 
   const requestMutation = useMutation({
-    mutationFn: () =>
-      createMyLeaveRequest({
+    mutationFn: () => {
+      const finalEndDate = durationMode === 'single' ? startDate : endDate;
+      return createMyLeaveRequest({
         leaveType,
         startDate,
-        endDate,
+        endDate: finalEndDate,
         reason: reason || undefined,
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success('Leave request submitted for managerial review.');
       setIsRequestModalOpen(false);
+      setDurationMode('single');
       setLeaveType('annual');
       setStartDate('');
       setEndDate('');
@@ -68,11 +72,16 @@ export default function EmployeeLeavePage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!startDate || !endDate) {
-      toast.error('Start and end dates are required.');
+    if (!startDate) {
+      toast.error('Please select the leave date.');
       return;
     }
-    if (new Date(endDate) < new Date(startDate)) {
+    const finalEndDate = durationMode === 'single' ? startDate : endDate;
+    if (!finalEndDate) {
+      toast.error('End date is required.');
+      return;
+    }
+    if (new Date(finalEndDate) < new Date(startDate)) {
       toast.error('End date cannot be earlier than start date.');
       return;
     }
@@ -171,37 +180,75 @@ export default function EmployeeLeavePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {requests.map((r: any) => (
-                  <TableRow key={r.id} className="hover:bg-slate-50/60 transition-colors">
-                    <TableCell className="font-semibold text-slate-900 text-xs capitalize">
-                      {r.leaveType} Leave
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-700">
-                      {new Date(r.startDate).toLocaleDateString('en-GB')} →{' '}
-                      {new Date(r.endDate).toLocaleDateString('en-GB')}
-                    </TableCell>
-                    <TableCell className="text-xs font-semibold text-slate-800 font-mono">
-                      {r.totalDays} days
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500 max-w-xs truncate">
-                      {r.reason || '—'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          r.status === 'approved'
-                            ? 'success'
-                            : r.status === 'pending'
-                            ? 'warning'
-                            : 'danger'
-                        }
-                        className="capitalize text-xs font-medium"
-                      >
-                        {r.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {requests.map((r: any) => {
+                  const isSingleDay = r.startDate === r.endDate;
+                  const isWorkedAttendance =
+                    r.reviewNotes &&
+                    (r.reviewNotes.includes('check-in') ||
+                      r.reviewNotes.includes('worked') ||
+                      r.reviewNotes.includes('attendance'));
+
+                  return (
+                    <TableRow key={r.id} className="hover:bg-slate-50/60 transition-colors">
+                      <TableCell className="font-semibold text-slate-900 text-xs capitalize">
+                        {r.leaveType} Leave
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-700">
+                        {isSingleDay ? (
+                          <span className="inline-flex items-center gap-1.5 font-medium">
+                            {new Date(r.startDate).toLocaleDateString('en-GB', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                            <span className="text-[10px] text-[#6C5CE7] font-semibold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">
+                              Single Day
+                            </span>
+                          </span>
+                        ) : (
+                          <span>
+                            {new Date(r.startDate).toLocaleDateString('en-GB')} →{' '}
+                            {new Date(r.endDate).toLocaleDateString('en-GB')}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs font-semibold text-slate-800 font-mono">
+                        {r.totalDays} day{r.totalDays === 1 ? '' : 's'}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500 max-w-xs">
+                        <div className="truncate">{r.reason || '—'}</div>
+                        {r.reviewNotes && (
+                          <div className="text-[10px] text-slate-400 mt-0.5 truncate" title={r.reviewNotes}>
+                            Note: {r.reviewNotes}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1 items-start">
+                          <Badge
+                            variant={
+                              r.status === 'approved'
+                                ? 'success'
+                                : r.status === 'pending'
+                                ? 'warning'
+                                : isWorkedAttendance
+                                ? 'info'
+                                : 'danger'
+                            }
+                            className="capitalize text-xs font-medium"
+                          >
+                            {isWorkedAttendance ? 'Worked (Attendance)' : r.status}
+                          </Badge>
+                          {isWorkedAttendance && (
+                            <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
+                              <CheckCircle2 className="w-2.5 h-2.5" /> Shift In Attendance
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -213,7 +260,7 @@ export default function EmployeeLeavePage() {
         isOpen={isRequestModalOpen}
         onClose={() => setIsRequestModalOpen(false)}
         title="Request Time Off"
-        description="Submit a holiday or absence request for company management review."
+        description="Submit a single-day absence or multiple-day holiday request for managerial review."
         maxWidth="md"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -234,33 +281,94 @@ export default function EmployeeLeavePage() {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {/* Duration Mode Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Duration Selection <span className="text-rose-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-xl border border-slate-200">
+              <button
+                type="button"
+                onClick={() => {
+                  setDurationMode('single');
+                  if (startDate) setEndDate(startDate);
+                }}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  durationMode === 'single'
+                    ? 'bg-white text-[#6C5CE7] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Single Day (1 Day)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDurationMode('range')}
+                className={`py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  durationMode === 'range'
+                    ? 'bg-white text-[#6C5CE7] shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Multiple Days (Range)
+              </button>
+            </div>
+          </div>
+
+          {durationMode === 'single' ? (
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1">
-                From Date <span className="text-rose-500">*</span>
+                Leave Date <span className="text-rose-500">*</span>
               </label>
               <Input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  setEndDate(e.target.value);
+                }}
                 required
                 className="text-sm"
               />
+              {startDate && (
+                <p className="text-[11px] text-[#6C5CE7] font-medium mt-1 flex items-center gap-1">
+                  <Calendar className="w-3 h-3" />
+                  Requesting 1 day leave on {new Date(startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              )}
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                To Date <span className="text-rose-500">*</span>
-              </label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate}
-                required
-                className="text-sm"
-              />
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  From Date <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    if (!endDate || endDate < e.target.value) setEndDate(e.target.value);
+                  }}
+                  required
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  To Date <span className="text-rose-500">*</span>
+                </label>
+                <Input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  min={startDate}
+                  required
+                  className="text-sm"
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -269,7 +377,7 @@ export default function EmployeeLeavePage() {
             <Input
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Annual family vacation, personal appointment"
+              placeholder="e.g. Personal appointment, doctor visit, holiday"
               className="text-sm"
             />
           </div>

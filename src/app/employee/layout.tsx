@@ -20,6 +20,7 @@ import {
   MessageSquare,
 } from 'lucide-react';
 import { fetchMyOverview } from '@/lib/api/me';
+import { fetchUnreadChatCount } from '@/lib/api/chat';
 import { useQuery } from '@tanstack/react-query';
 
 export default function EmployeePortalLayout({
@@ -51,11 +52,20 @@ export default function EmployeePortalLayout({
     router.push('/login');
   };
 
+  // Live chat unread count for officers
+  const { data: unreadChatCount } = useQuery({
+    queryKey: ['chat-unread-count'],
+    queryFn: fetchUnreadChatCount,
+    refetchInterval: 5000,
+  });
+
+  const chatBadgeCount = typeof unreadChatCount === 'number' ? unreadChatCount : Number(unreadChatCount) || 0;
+
   const navItems = [
     { label: 'Dashboard', href: '/employee', icon: LayoutDashboard },
-    { label: 'Dispatch Chat', href: '/employee/chat', icon: MessageSquare },
+    { label: 'Dispatch Chat', href: '/employee/chat', icon: MessageSquare, dynamicChatBadge: true },
     { label: 'My Shifts & Rota', href: '/employee/shifts', icon: CalendarDays },
-    { label: 'Clock In & Punch', href: '/employee/attendance', icon: Clock },
+    { label: 'Check In & Punch', href: '/employee/attendance', icon: Clock },
     { label: 'My Assignment', href: '/employee/assignment', icon: Briefcase },
     { label: 'Licences & SIA', href: '/employee/licences', icon: ShieldCheck },
     { label: 'Leave & Time Off', href: '/employee/leave', icon: CalendarCheck },
@@ -65,7 +75,8 @@ export default function EmployeePortalLayout({
   const bottomNavItems = [
     { label: 'Home', href: '/employee', icon: LayoutDashboard },
     { label: 'Shifts', href: '/employee/shifts', icon: CalendarDays },
-    { label: 'Clock In', href: '/employee/attendance', icon: Clock },
+    { label: 'Chat', href: '/employee/chat', icon: MessageSquare, dynamicChatBadge: true },
+    { label: 'Check In', href: '/employee/attendance', icon: Clock },
     { label: 'Leave', href: '/employee/leave', icon: CalendarCheck },
     { label: 'Profile', href: '/employee/profile', icon: User },
   ];
@@ -182,7 +193,12 @@ export default function EmployeePortalLayout({
                       active ? 'text-[#6C5CE7]' : 'text-[#9096A9] group-hover:text-[#171A2B]'
                     }`}
                   />
-                  <span className="truncate">{item.label}</span>
+                  <span className="truncate flex-1">{item.label}</span>
+                  {(item as any).dynamicChatBadge && chatBadgeCount > 0 && (
+                    <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#6C5CE7] text-white shadow-xs animate-pulse">
+                      {chatBadgeCount > 99 ? '99+' : chatBadgeCount}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -255,7 +271,12 @@ export default function EmployeePortalLayout({
                         <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-[#6C5CE7]" />
                       )}
                       <Icon className={`w-4 h-4 ${active ? 'text-[#6C5CE7]' : 'text-[#9096A9]'}`} />
-                      <span>{item.label}</span>
+                      <span className="flex-1">{item.label}</span>
+                      {(item as any).dynamicChatBadge && chatBadgeCount > 0 && (
+                        <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#6C5CE7] text-white shadow-xs animate-pulse">
+                          {chatBadgeCount > 99 ? '99+' : chatBadgeCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}
@@ -279,11 +300,18 @@ export default function EmployeePortalLayout({
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
+              className={`relative flex flex-col items-center justify-center py-1 px-3 rounded-lg text-[10px] font-medium transition-colors ${
                 active ? 'text-[#6C5CE7] font-bold' : 'text-[#687086] hover:text-[#171A2B]'
               }`}
             >
-              <Icon className={`w-4 h-4 mb-0.5 ${active ? 'text-[#6C5CE7]' : 'text-[#9096A9]'}`} />
+              <div className="relative">
+                <Icon className={`w-4 h-4 mb-0.5 ${active ? 'text-[#6C5CE7]' : 'text-[#9096A9]'}`} />
+                {(item as any).dynamicChatBadge && chatBadgeCount > 0 && (
+                  <span className="absolute -top-1 -right-2 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-[#6C5CE7] px-1 text-[8px] font-bold text-white shadow-xs animate-bounce">
+                    {chatBadgeCount > 99 ? '99+' : chatBadgeCount}
+                  </span>
+                )}
+              </div>
               <span>{item.label}</span>
             </Link>
           );

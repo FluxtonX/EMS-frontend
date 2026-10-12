@@ -11,6 +11,7 @@ import {
   fetchChatMessages,
   sendChatMessage,
   markConversationAsReadApi,
+  markAllConversationsAsReadApi,
   ChatConversation,
   ChatMessage,
 } from '@/lib/api/chat';
@@ -143,7 +144,9 @@ function CompanyChatContent() {
   useEffect(() => {
     if (selectedConversationId) {
       markConversationAsReadApi(selectedConversationId).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['chat-unread-count'] });
         queryClient.invalidateQueries({ queryKey: ['unreadChatCount'] });
+        queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
         queryClient.setQueryData(['chat-conversations'], (old: ChatConversation[] = []) =>
           old.map((c) => (c.id === selectedConversationId ? { ...c, unread_count: 0 } : c))
         );
@@ -160,6 +163,23 @@ function CompanyChatContent() {
     enabled: !!selectedConversationId,
     refetchInterval: 2500,
   });
+
+  // Automatically mark incoming messages as read while active conversation is open
+  useEffect(() => {
+    if (selectedConversationId && messages.length > 0) {
+      const hasUnread = messages.some((m: any) => {
+        const isFromEmployee = m.sender_type === 'employee' || m.sender_role?.toUpperCase() === 'EMPLOYEE' || m.sender_role?.toUpperCase() !== 'COMPANY';
+        const isUnread = m.status !== 'read' && m.is_read !== true;
+        return isFromEmployee && isUnread;
+      });
+      if (hasUnread) {
+        markConversationAsReadApi(selectedConversationId).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['chat-unread-count'] });
+          queryClient.invalidateQueries({ queryKey: ['unreadChatCount'] });
+        });
+      }
+    }
+  }, [selectedConversationId, messages, queryClient]);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -200,6 +220,19 @@ function CompanyChatContent() {
     },
   });
 
+
+  const totalUnreadCount = conversations.reduce((acc, c) => acc + (c.unread_count || 0), 0);
+
+  const handleMarkAllRead = async () => {
+    await markAllConversationsAsReadApi();
+    queryClient.setQueryData(['chat-conversations'], (old: ChatConversation[] = []) =>
+      old.map((c) => ({ ...c, unread_count: 0 }))
+    );
+    queryClient.setQueryData(['chat-unread-count'], 0);
+    queryClient.setQueryData(['unreadChatCount'], 0);
+    queryClient.invalidateQueries({ queryKey: ['chat-unread-count'] });
+    queryClient.invalidateQueries({ queryKey: ['unreadChatCount'] });
+  };
 
   const handleSend = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -291,7 +324,7 @@ function CompanyChatContent() {
           {/* Left Column: Officer Conversation List (4 Cols) */}
           <div className="md:col-span-4 lg:col-span-4 border-r border-slate-200/70 flex flex-col h-full bg-white/40 overflow-hidden">
             {/* Search filter */}
-            <div className="p-3.5 border-b border-slate-200/70 shrink-0">
+            <div className="p-3.5 border-b border-slate-200/70 shrink-0 space-y-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                 <input
@@ -302,6 +335,20 @@ function CompanyChatContent() {
                   className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100/90 border border-slate-200/70 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-[#6C5CE7]/20 focus:border-[#6C5CE7] outline-none transition-all"
                 />
               </div>
+              {totalUnreadCount > 0 && (
+                <div className="flex items-center justify-between px-1 text-xs">
+                  <span className="text-[11px] font-semibold text-slate-600 flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#6C5CE7] animate-pulse" />
+                    {totalUnreadCount} unread message{totalUnreadCount > 1 ? 's' : ''}
+                  </span>
+                  <button
+                    onClick={handleMarkAllRead}
+                    className="text-[11px] font-semibold text-[#6C5CE7] hover:text-[#5b4bc4] hover:underline cursor-pointer transition-colors"
+                  >
+                    Mark all as read
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Conversation list (Separately Scrollable) */}

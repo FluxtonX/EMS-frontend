@@ -199,12 +199,38 @@ export async function fetchUnreadChatCount(): Promise<number> {
 export async function markConversationAsReadApi(conversationId: string): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}/chat/conversations/${conversationId}/read`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+    }).catch(() => null);
+    if (res && res.ok) return true;
+
+    // Fallback to POST
+    const postRes = await fetch(`${API_BASE_URL}/chat/conversations/${conversationId}/read`, {
       method: 'POST',
       headers: getAuthHeaders(),
     }).catch(() => null);
-    return !!(res && res.ok);
+    return !!(postRes && postRes.ok);
   } catch {
     return false;
   }
 }
+
+export async function markAllConversationsAsReadApi(): Promise<boolean> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/chat/mark-all-read`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+    }).catch(() => null);
+    if (res && res.ok) return true;
+
+    const postRes = await fetch(`${API_BASE_URL}/chat/mark-all-read`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    }).catch(() => null);
+    return !!(postRes && postRes.ok);
+  } catch {
+    return false;
+  }
+}
+
 

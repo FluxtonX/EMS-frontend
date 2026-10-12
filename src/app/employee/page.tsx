@@ -125,7 +125,7 @@ export default function EmployeeDashboardPage() {
     queryFn: fetchMyOverview,
   });
 
-  // Clock In Mutation
+  // Check In Mutation
   const clockInMutation = useMutation({
     mutationFn: () =>
       clockInMyAttendance({
@@ -136,15 +136,17 @@ export default function EmployeeDashboardPage() {
         accuracy: gpsCoordinates.accuracy,
       }),
     onSuccess: () => {
-      toast.success('Clocked in successfully. Have a safe shift!');
+      toast.success('Checked in successfully. Have a safe shift!');
       queryClient.invalidateQueries({ queryKey: ['my-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['my-leave'] });
+      queryClient.invalidateQueries({ queryKey: ['my-attendance'] });
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to clock in.');
+      toast.error(err.message || 'Failed to check in.');
     },
   });
 
-  // Clock Out Mutation
+  // Check Out Mutation
   const clockOutMutation = useMutation({
     mutationFn: () =>
       clockOutMyAttendance({
@@ -153,11 +155,11 @@ export default function EmployeeDashboardPage() {
         accuracy: gpsCoordinates.accuracy,
       }),
     onSuccess: () => {
-      toast.success('Clocked out successfully. Shift recorded.');
+      toast.success('Checked out successfully. Shift recorded.');
       queryClient.invalidateQueries({ queryKey: ['my-overview'] });
     },
     onError: (err: any) => {
-      toast.error(err.message || 'Failed to clock out.');
+      toast.error(err.message || 'Failed to check out.');
     },
   });
 
@@ -230,7 +232,7 @@ export default function EmployeeDashboardPage() {
                 }`}
               />
               <span className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                {isClockedIn ? 'Currently Clocked In' : 'Attendance Punch Clock'}
+                {isClockedIn ? 'Currently Checked In' : 'Attendance Check In'}
               </span>
             </div>
 
@@ -239,7 +241,7 @@ export default function EmployeeDashboardPage() {
                 <div className="text-xl font-bold text-emerald-950">Active on Duty</div>
                 <div className="text-xs text-emerald-700 mt-1 flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5" />
-                  Clocked in at{' '}
+                  Checked in at{' '}
                   <span className="font-semibold">
                     {new Date(overview.activeClockIn.clockInTime).toLocaleTimeString('en-GB', {
                       hour: '2-digit',
@@ -286,7 +288,7 @@ export default function EmployeeDashboardPage() {
                 disabled={clockOutMutation.isPending}
                 className="bg-rose-600 hover:bg-rose-700 text-white font-semibold px-6 py-2.5 rounded-xl shadow-sm text-sm"
               >
-                {clockOutMutation.isPending ? 'Clocking Out...' : 'Clock Out Now'}
+                {clockOutMutation.isPending ? 'Checking Out...' : 'Check Out'}
               </Button>
             ) : (
               <Button
@@ -298,7 +300,7 @@ export default function EmployeeDashboardPage() {
                   ? 'Verifying Location...'
                   : !overview?.currentAssignment
                   ? 'No Site Assigned'
-                  : 'Clock In to Site'}
+                  : 'Check In'}
               </Button>
             )}
             <Link

@@ -63,8 +63,10 @@ export function Header() {
   const { data: unreadChatCount } = useQuery({
     queryKey: ['chat-unread-count'],
     queryFn: fetchUnreadChatCount,
-    refetchInterval: 10000,
+    refetchInterval: 5000,
   });
+
+  const chatBadgeCount = typeof unreadChatCount === 'number' ? unreadChatCount : Number(unreadChatCount) || 0;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200/80 bg-white/80 backdrop-blur-xl px-4 md:px-6 shadow-[0_1px_4px_rgba(0,0,0,0.02)]">
@@ -121,9 +123,9 @@ export function Header() {
           title="Open Real-Time Chat"
         >
           <MessageSquare className="h-4 w-4" />
-          {unreadChatCount && unreadChatCount > 0 ? (
+          {chatBadgeCount > 0 ? (
             <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#6C5CE7] px-1 text-[9px] font-bold text-white shadow-xs animate-bounce">
-              {unreadChatCount}
+              {chatBadgeCount > 99 ? '99+' : chatBadgeCount}
             </span>
           ) : null}
         </Link>

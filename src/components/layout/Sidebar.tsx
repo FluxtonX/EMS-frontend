@@ -106,7 +106,7 @@ export function Sidebar() {
   const { data: unreadChatCount } = useQuery({
     queryKey: ['chat-unread-count'],
     queryFn: fetchUnreadChatCount,
-    refetchInterval: 10000,
+    refetchInterval: 5000,
   });
 
   // Close sidebar on outside click on mobile
@@ -200,20 +200,22 @@ export function Sidebar() {
                   pathname === item.href ||
                   (item.href !== '/' && pathname.startsWith(item.href));
 
+                const chatCountNum = typeof unreadChatCount === 'number' ? unreadChatCount : Number(unreadChatCount) || 0;
+
                 const badge =
                   item.dynamicBadge
                     ? employeeCount !== null
                       ? String(employeeCount)
                       : null
                     : item.dynamicChatBadge
-                    ? unreadChatCount && unreadChatCount > 0
-                      ? String(unreadChatCount)
+                    ? chatCountNum > 0
+                      ? String(chatCountNum > 99 ? '99+' : chatCountNum)
                       : null
                     : item.badge != null
                     ? String(item.badge)
                     : null;
 
-                const isChatBadge = item.dynamicChatBadge && unreadChatCount && unreadChatCount > 0;
+                const isChatBadge = item.dynamicChatBadge && chatCountNum > 0;
 
                 return (
                   <Link

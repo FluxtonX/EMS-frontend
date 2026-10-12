@@ -53,16 +53,65 @@ export default function EmployeeProfilePage() {
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB.');
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please upload an image file (JPEG, PNG, WebP).');
       return;
     }
+
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Image size must be less than 15MB.');
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onloadend = () => {
-      if (typeof reader.result === 'string') {
-        setAvatarUrl(reader.result);
+    reader.onload = (event) => {
+      const rawDataUrl = event.target?.result as string;
+      if (!rawDataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_DIM = 600;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_DIM) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            }
+          } else {
+            if (height > MAX_DIM) {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.88);
+            setAvatarUrl(compressedDataUrl);
+            toast.success('Photo preview ready. Click "Save Profile Changes" to apply.');
+            return;
+          }
+        } catch {
+          // Fallback to raw data url if canvas processing fails
+        }
+        setAvatarUrl(rawDataUrl);
         toast.success('Photo preview ready. Click "Save Profile Changes" to apply.');
-      }
+      };
+      img.onerror = () => {
+        setAvatarUrl(rawDataUrl);
+        toast.success('Photo preview ready. Click "Save Profile Changes" to apply.');
+      };
+      img.src = rawDataUrl;
     };
     reader.readAsDataURL(file);
   };
