@@ -211,6 +211,7 @@ export async function createMyLeaveRequest(payload: {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to submit leave request.');
   }
+  apiCache.invalidate('leave');
   const json = await res.json();
   return json.data || json;
 }

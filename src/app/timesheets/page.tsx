@@ -40,13 +40,57 @@ export default function TimesheetsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [periodStart, setPeriodStart] = useState<string>('2026-09-01');
-  const [periodEnd, setPeriodEnd] = useState<string>('2026-09-30');
+  const [periodStart, setPeriodStart] = useState<string>(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    return d.toISOString().split('T')[0];
+  });
+  const [periodEnd, setPeriodEnd] = useState<string>(() => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff + 6);
+    return d.toISOString().split('T')[0];
+  });
+
+  const handlePrevWeek = () => {
+    const d = new Date(periodStart);
+    d.setDate(d.getDate() - 7);
+    const s = d.toISOString().split('T')[0];
+    const e = new Date(d);
+    e.setDate(e.getDate() + 6);
+    setPeriodStart(s);
+    setPeriodEnd(e.toISOString().split('T')[0]);
+  };
+
+  const handleNextWeek = () => {
+    const d = new Date(periodStart);
+    d.setDate(d.getDate() + 7);
+    const s = d.toISOString().split('T')[0];
+    const e = new Date(d);
+    e.setDate(e.getDate() + 6);
+    setPeriodStart(s);
+    setPeriodEnd(e.toISOString().split('T')[0]);
+  };
+
+  const handleThisWeek = () => {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    d.setDate(diff);
+    const s = d.toISOString().split('T')[0];
+    const e = new Date(d);
+    e.setDate(e.getDate() + 6);
+    setPeriodStart(s);
+    setPeriodEnd(e.toISOString().split('T')[0]);
+  };
 
   // Generator Modal State
   const [isGenerateOpen, setIsGenerateOpen] = useState(false);
-  const [genStart, setGenStart] = useState('2026-09-22');
-  const [genEnd, setGenEnd] = useState('2026-09-28');
+  const [genStart, setGenStart] = useState(periodStart);
+  const [genEnd, setGenEnd] = useState(periodEnd);
   const [generating, setGenerating] = useState(false);
   const [genSuccessMsg, setGenSuccessMsg] = useState<string | null>(null);
 
@@ -264,8 +308,8 @@ export default function TimesheetsPage() {
           </div>
         )}
 
-        {/* Live Operational Metrics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 my-6">
+        {/* Live Operational Metrics Cards (Simplified 3-Metric Focus) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 my-6">
           <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
             <div className="flex items-center justify-between text-[#687086] text-xs">
               <span className="font-semibold">Total Net Hours</span>
@@ -274,18 +318,9 @@ export default function TimesheetsPage() {
             <p className="text-2xl font-bold text-[#171A2B] mt-2.5">
               {stats.totalHours.toFixed(1)} <span className="text-sm font-normal text-[#9096A9]">hrs</span>
             </p>
-            <p className="text-[11px] text-[#9096A9] mt-1">Net of unpaid breaks</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span className="font-semibold">Regular Hours</span>
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            </div>
-            <p className="text-2xl font-bold text-emerald-600 mt-2.5">
-              {stats.regularHours.toFixed(1)} <span className="text-sm font-normal text-[#9096A9]">hrs</span>
+            <p className="text-[11px] text-[#9096A9] mt-1">
+              {stats.regularHours.toFixed(1)}h regular (≤ 40h) · Net of breaks
             </p>
-            <p className="text-[11px] text-[#9096A9] mt-1">Standard rate (≤ 40h)</p>
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
@@ -296,7 +331,7 @@ export default function TimesheetsPage() {
             <p className="text-2xl font-bold text-amber-600 mt-2.5">
               {stats.overtimeHours.toFixed(1)} <span className="text-sm font-normal text-[#9096A9]">hrs</span>
             </p>
-            <p className="text-[11px] text-[#9096A9] mt-1">1.5x Premium rate</p>
+            <p className="text-[11px] text-[#9096A9] mt-1">Calculated at 1.5x premium rate</p>
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
@@ -307,41 +342,50 @@ export default function TimesheetsPage() {
             <p className="text-2xl font-bold text-[#6C5CE7] mt-2.5">
               £{stats.totalGrossPay.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <p className="text-[11px] text-[#9096A9] mt-1">{stats.lockedCount} finalized / locked</p>
+            <p className="text-[11px] text-[#9096A9] mt-1">{stats.approvedCount} approved · {stats.lockedCount} locked</p>
           </div>
         </div>
 
-        {/* Filters & Period Controls */}
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] my-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-[#687086]">
+        {/* Simplified Period Navigation & Filter Controls */}
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] my-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handlePrevWeek}
+              className="px-2.5 py-1.5 rounded-lg border border-[#E5E3F2] text-xs font-medium text-[#687086] hover:bg-[#F9F8FF] hover:text-[#171A2B]"
+            >
+              ← Prev Week
+            </button>
+            <button
+              onClick={handleThisWeek}
+              className="px-3 py-1.5 rounded-lg border border-[#6C5CE7]/30 bg-[#F5F3FF] text-xs font-semibold text-[#6C5CE7] hover:bg-[#ECE8FD]"
+            >
+              This Week
+            </button>
+            <button
+              onClick={handleNextWeek}
+              className="px-2.5 py-1.5 rounded-lg border border-[#E5E3F2] text-xs font-medium text-[#687086] hover:bg-[#F9F8FF] hover:text-[#171A2B]"
+            >
+              Next Week →
+            </button>
+
+            <div className="flex items-center gap-1.5 ml-2 text-xs font-semibold text-[#171A2B] bg-[#F9F8FF] px-3 py-1.5 rounded-lg border border-[#E5E3F2]">
               <Calendar className="h-3.5 w-3.5 text-[#6C5CE7]" />
-              <span className="font-medium">Period:</span>
-              <input
-                type="date"
-                value={periodStart}
-                onChange={(e) => setPeriodStart(e.target.value)}
-                className="text-xs border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] text-[#171A2B]"
-              />
-              <span>to</span>
-              <input
-                type="date"
-                value={periodEnd}
-                onChange={(e) => setPeriodEnd(e.target.value)}
-                className="text-xs border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] text-[#171A2B]"
-              />
+              <span>
+                {new Date(periodStart).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} –{' '}
+                {new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {(['all', 'draft', 'submitted', 'approved', 'locked'] as const).map((st) => (
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
                 className={[
-                  'px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-all duration-150',
+                  'px-2.5 py-1.5 rounded-lg text-xs font-medium capitalize transition-all duration-150',
                   statusFilter === st
-                    ? 'bg-[#6C5CE7] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_1px_2px_rgba(0,0,0,0.05)]'
+                    ? 'bg-[#6C5CE7] text-white shadow-xs'
                     : 'bg-[#F9F8FF] text-[#687086] hover:bg-[#F0EEF8] hover:text-[#171A2B] border border-[#E5E3F2]',
                 ].join(' ')}
               >

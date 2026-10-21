@@ -116,7 +116,16 @@ export default function ShiftsPage() {
     }
     setIsSiteJobsLoading(true);
     fetchSiteJobs(formData.siteId)
-      .then((jobs) => setSelectedSiteJobs(jobs || []))
+      .then((jobs) => {
+        const list = jobs || [];
+        setSelectedSiteJobs(list);
+        if (list.length > 0) {
+          setFormData((prev) => ({
+            ...prev,
+            siteJobId: prev.siteJobId && list.some((j: any) => j.id === prev.siteJobId) ? prev.siteJobId : list[0].id,
+          }));
+        }
+      })
       .catch(() => setSelectedSiteJobs([]))
       .finally(() => setIsSiteJobsLoading(false));
   }, [formData.siteId]);
@@ -224,15 +233,38 @@ export default function ShiftsPage() {
   const getStatusBadge = (status: ShiftStatus) => {
     switch (status) {
       case 'scheduled':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">Scheduled</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+            Awaiting Ack
+          </span>
+        );
       case 'confirmed':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">Confirmed</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+            Confirmed
+          </span>
+        );
       case 'in_progress':
-        return <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />In Progress</span>;
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            On Duty
+          </span>
+        );
       case 'completed':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">Completed</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+            Completed
+          </span>
+        );
       case 'cancelled':
-        return <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">Cancelled</span>;
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+            Cancelled
+          </span>
+        );
     }
   };
 
@@ -389,8 +421,8 @@ export default function ShiftsPage() {
                       : 'border-[#E5E3F2] hover:border-[#D5D0FA] shadow-sm'
                   }`}
                 >
-                  <div className="space-y-3">
-                    {/* Header: Site & Status */}
+                  <div className="space-y-2.5">
+                    {/* Header: Site & Live Status */}
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <div className="flex items-center gap-1.5">
@@ -406,113 +438,90 @@ export default function ShiftsPage() {
                       {getStatusBadge(shift.status)}
                     </div>
 
-                    {/* Time Window */}
-                    <div className="flex items-center justify-between bg-[#F5F3FF] px-2.5 py-1.5 rounded border border-[#E5E3F2] text-xs">
-                      <div className="flex items-center gap-1.5 text-[#171A2B] font-semibold">
-                        <Clock className="h-3.5 w-3.5 text-[#687086]" />
+                    {/* Time Window & Break */}
+                    <div className="flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-md border border-slate-200/80 text-xs">
+                      <div className="flex items-center gap-1.5 text-slate-900 font-semibold">
+                        <Clock className="h-3.5 w-3.5 text-slate-500" />
                         <span>
                           {shift.startTime} – {shift.endTime}
                         </span>
                       </div>
-                      <span className="text-[10px] text-[#687086]">
-                        Break: {shift.breakMinutes}m
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        {shift.breakMinutes > 0 ? `${shift.breakMinutes}m break` : 'No break'}
                       </span>
                     </div>
 
-                    {/* Assigned Officer / Open Position */}
-                    <div className="pt-1">
+                    {/* Assigned Guard or Open Position */}
+                    <div>
                       {isOpenPosition ? (
-                        <div className="flex items-center justify-between p-2 rounded bg-[#FEF6EE] border border-[#FADBBF]">
+                        <div className="flex items-center justify-between p-2 rounded-md bg-amber-50/70 border border-amber-200/80">
                           <div className="flex items-center gap-2">
-                            <AlertTriangle className="h-4 w-4 text-[#F4A261]" />
+                            <AlertTriangle className="h-4 w-4 text-amber-600" />
                             <div>
                               <p className="text-xs font-bold text-amber-900 leading-tight">
                                 Open Position
                               </p>
-                              <p className="text-[10px] text-[#F4A261]">No officer assigned</p>
+                              <p className="text-[10px] text-amber-700">No officer assigned</p>
                             </div>
                           </div>
                           <button
                             onClick={() => setSelectedShiftForEdit(shift)}
-                            className="px-2 py-0.5 bg-[#F4A261] hover:bg-amber-600 text-white rounded text-[10px] font-semibold"
+                            className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[11px] font-semibold transition-colors"
                           >
                             Assign Guard
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-between p-2 rounded bg-[#F5F3FF] border border-[#E5E3F2]">
+                        <div className="flex items-center justify-between p-2 rounded-md bg-purple-50/50 border border-purple-100">
                           <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-[#EDE9FE] text-[#6C5CE7] flex items-center justify-center font-bold text-xs">
+                            <div className="h-7 w-7 rounded-full bg-[#EDE9FE] text-[#6C5CE7] flex items-center justify-center font-bold text-xs shrink-0">
                               {shift.employee?.firstName?.[0]}
                               {shift.employee?.lastName?.[0]}
                             </div>
                             <div>
-                              <p className="text-xs font-semibold text-[#171A2B] leading-tight">
+                              <p className="text-xs font-semibold text-slate-900 leading-tight">
                                 {shift.employee?.firstName} {shift.employee?.lastName}
                               </p>
-                              <p className="text-[10px] text-[#687086]">
-                                {shift.employee?.employeeNumber}
+                              <p className="text-[10px] text-slate-500">
+                                {shift.status === 'in_progress' ? 'Clocked in on site' : 'Assigned officer'}
                               </p>
                             </div>
                           </div>
-                          <span className="text-[10px] font-medium text-[#18B887] bg-[#E8F8F3] px-1.5 py-0.5 rounded border border-[#A3E5D0]">
-                            Assigned
-                          </span>
+                          <button
+                            onClick={() => setSelectedShiftForEdit(shift)}
+                            className="text-[11px] font-medium text-[#6C5CE7] hover:underline"
+                          >
+                            Reassign
+                          </button>
                         </div>
                       )}
                     </div>
 
                     {/* Notes if any */}
                     {shift.notes && (
-                      <p className="text-[11px] text-[#687086] italic bg-[#F5F3FF] p-2 rounded border border-[#E5E3F2]">
+                      <p className="text-[11px] text-[#687086] italic bg-slate-50 p-2 rounded border border-slate-200/60">
                         "{shift.notes}"
                       </p>
                     )}
                   </div>
 
-                  {/* Actions Bar */}
-                  <div className="flex items-center justify-between border-t border-[#E5E3F2] pt-3 mt-3 text-xs">
+                  {/* Actions Bar (Clean Owner Tools) */}
+                  <div className="flex items-center justify-between border-t border-slate-100 pt-2.5 mt-2.5 text-xs">
                     <button
                       onClick={() => setSelectedShiftForEdit(shift)}
-                      className="inline-flex items-center gap-1 text-[#6C5CE7] hover:text-[#5A4ACD] font-medium"
+                      className="inline-flex items-center gap-1 text-[#6C5CE7] hover:text-[#5A4ACD] font-medium text-xs py-1"
                     >
                       <Edit2 className="h-3 w-3" />
-                      Manage
+                      Manage Shift
                     </button>
 
-                    <div className="flex items-center gap-1.5">
-                      {shift.status === 'scheduled' && (
-                        <button
-                          onClick={() => handleUpdateStatus(shift.id, 'confirmed')}
-                          className="px-2 py-0.5 text-[10px] font-semibold rounded bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
-                        >
-                          Confirm
-                        </button>
-                      )}
-                      {shift.status === 'confirmed' && (
-                        <button
-                          onClick={() => handleUpdateStatus(shift.id, 'in_progress')}
-                          className="px-2 py-0.5 text-[10px] font-semibold rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                        >
-                          Start Shift
-                        </button>
-                      )}
-                      {shift.status === 'in_progress' && (
-                        <button
-                          onClick={() => handleUpdateStatus(shift.id, 'completed')}
-                          className="px-2 py-0.5 text-[10px] font-semibold rounded bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300"
-                        >
-                          Complete
-                        </button>
-                      )}
-                      <button
-                        onClick={() => handleDeleteShift(shift.id)}
-                        className="text-rose-600 hover:text-rose-800 p-1"
-                        title="Delete Shift"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleDeleteShift(shift.id)}
+                      className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
+                      title="Delete Shift"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               );
@@ -579,27 +588,70 @@ export default function ShiftsPage() {
                       <span>Loading site operational roles & rates...</span>
                     </div>
                   ) : (
-                    <select
-                      value={formData.siteJobId}
-                      onChange={(e) => setFormData({ ...formData, siteJobId: e.target.value })}
-                      required
-                      disabled={!formData.siteId || selectedSiteJobs.length === 0}
-                      className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] disabled:bg-[#F5F3FF]"
-                    >
-                      <option value="">
-                        {!formData.siteId
-                          ? '-- Choose Site First --'
-                          : selectedSiteJobs.length === 0
-                          ? '-- No Roles Configured for Site --'
-                          : '-- Choose Job Role --'}
-                      </option>
-                      {selectedSiteJobs.map((sj: SiteJob) => (
-                        <option key={sj.id} value={sj.id}>
-                          {sj.jobType?.name || 'Role'} (£{sj.defaultPayRate}/hr pay • £
-                          {sj.billingRate}/hr bill)
+                    <>
+                      <select
+                        value={formData.siteJobId}
+                        onChange={(e) => setFormData({ ...formData, siteJobId: e.target.value })}
+                        required
+                        disabled={!formData.siteId || selectedSiteJobs.length === 0}
+                        className="w-full text-xs border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] disabled:bg-[#F5F3FF]"
+                      >
+                        <option value="">
+                          {!formData.siteId
+                            ? '-- Choose Site First --'
+                            : selectedSiteJobs.length === 0
+                            ? '-- No Roles Configured for Site --'
+                            : '-- Choose Job Role --'}
                         </option>
-                      ))}
-                    </select>
+                        {selectedSiteJobs.map((sj: SiteJob) => (
+                          <option key={sj.id} value={sj.id}>
+                            {sj.jobType?.name || 'Role'} (£{sj.defaultPayRate}/hr pay • £
+                            {sj.billingRate}/hr bill)
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* Instant Helper if site has no roles */}
+                      {formData.siteId && selectedSiteJobs.length === 0 && (
+                        <div className="mt-1.5 p-2.5 rounded-lg border border-amber-200 bg-amber-50 text-xs flex items-center justify-between">
+                          <span className="text-[11px] text-amber-900">No roles attached to this site yet.</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsSiteJobsLoading(true);
+                              fetchSiteJobs(formData.siteId)
+                                .then((jobs) => {
+                                  const list = jobs || [];
+                                  setSelectedSiteJobs(list);
+                                  if (list.length > 0) setFormData((prev) => ({ ...prev, siteJobId: list[0].id }));
+                                })
+                                .finally(() => setIsSiteJobsLoading(false));
+                            }}
+                            className="px-2.5 py-1 rounded bg-[#6C5CE7] hover:bg-[#5848C2] text-white text-[11px] font-semibold cursor-pointer transition-colors shadow-xs"
+                          >
+                            ⚡ Auto-Generate Roles
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Pay & Bill Rate Summary Pill */}
+                      {(() => {
+                        const currentJob = selectedSiteJobs.find((sj: SiteJob) => sj.id === formData.siteJobId);
+                        if (!currentJob) return null;
+                        const pay = Number(currentJob.defaultPayRate || 0);
+                        const bill = Number(currentJob.billingRate || 0);
+                        const margin = (bill - pay).toFixed(2);
+                        return (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-2 px-2.5 py-1 rounded-md bg-[#F5F3FF] border border-[#D5D0FA] text-[11px] text-[#171A2B]">
+                            <span>💰 Guard Pay: <strong>£{pay.toFixed(2)}/hr</strong></span>
+                            <span className="text-[#9096A9]">•</span>
+                            <span>🏢 Client Billing: <strong>£{bill.toFixed(2)}/hr</strong></span>
+                            <span className="text-[#9096A9]">•</span>
+                            <span className="text-emerald-700 font-bold">Margin: +£{margin}/hr</span>
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
                 </div>
 

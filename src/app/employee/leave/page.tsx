@@ -117,35 +117,45 @@ export default function EmployeeLeavePage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Remaining Days
+            Holiday Allowance
           </div>
           <div className="text-3xl font-extrabold text-[#6C5CE7]">
-            {entitlement?.remainingDays ?? 28}
+            {entitlement?.remainingDays ?? 28} <span className="text-sm font-normal text-slate-400">/ 28d</span>
           </div>
-          <div className="text-xs text-slate-400 mt-1">Available for booking</div>
+          <div className="text-xs text-slate-400 mt-1">Remaining annual leave</div>
         </div>
 
         <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-            Approved Taken
+            Holidays Taken
           </div>
           <div className="text-3xl font-extrabold text-slate-800">
             {entitlement?.approvedDays ?? 0}
           </div>
-          <div className="text-xs text-slate-400 mt-1">Days taken this year</div>
+          <div className="text-xs text-slate-400 mt-1">Annual days taken this year</div>
+        </div>
+
+        <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
+          <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            Sickness & Absence
+          </div>
+          <div className="text-3xl font-extrabold text-amber-600">
+            {(entitlement as any)?.absenceDaysThisYear ?? 0}
+          </div>
+          <div className="text-xs text-slate-400 mt-1">Sick / unpaid (separate from allowance)</div>
         </div>
 
         <div className="bg-white rounded-xl p-5 border border-slate-200/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
             Awaiting Review
           </div>
-          <div className="text-3xl font-extrabold text-amber-600">
+          <div className="text-3xl font-extrabold text-blue-600">
             {entitlement?.pendingDays ?? 0}
           </div>
-          <div className="text-xs text-slate-400 mt-1">Pending approval</div>
+          <div className="text-xs text-slate-400 mt-1">Pending manager approval</div>
         </div>
       </div>
 
@@ -225,20 +235,24 @@ export default function EmployeeLeavePage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col gap-1 items-start">
-                          <Badge
-                            variant={
-                              r.status === 'approved'
-                                ? 'success'
-                                : r.status === 'pending'
-                                ? 'warning'
-                                : isWorkedAttendance
-                                ? 'info'
-                                : 'danger'
-                            }
-                            className="capitalize text-xs font-medium"
-                          >
-                            {isWorkedAttendance ? 'Worked (Attendance)' : r.status}
-                          </Badge>
+                          {r.status === 'pending' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-xs">
+                              <Clock className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> Pending Approval
+                            </span>
+                          ) : r.status === 'approved' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Approved (Confirmed)
+                            </span>
+                          ) : r.status === 'rejected' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-xs">
+                              <XCircle className="w-3.5 h-3.5 text-rose-600" /> Rejected
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                              Cancelled
+                            </span>
+                          )}
+
                           {isWorkedAttendance && (
                             <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 border border-emerald-200">
                               <CheckCircle2 className="w-2.5 h-2.5" /> Shift In Attendance

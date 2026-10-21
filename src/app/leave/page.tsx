@@ -79,7 +79,7 @@ const inputCls =
   'focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/40 focus:border-[#6C5CE7] ' +
   'shadow-[inset_0_1px_3px_rgba(108,92,231,0.06)] transition-all';
 
-// ─── New Leave Request Modal ──────────────────────────────────────────────────
+// ─── Record Employee Leave / Absence Modal ─────────────────────────────────────
 function NewLeaveModal({
   employees,
   onClose,
@@ -91,7 +91,12 @@ function NewLeaveModal({
 }) {
   const [durationMode, setDurationMode] = useState<'single' | 'range'>('single');
   const [form, setForm] = useState<CreateLeavePayload>({
-    employeeId: '', leaveType: 'annual', startDate: '', endDate: '', reason: '',
+    employeeId: '',
+    leaveType: 'annual',
+    startDate: '',
+    endDate: '',
+    reason: '',
+    status: 'approved',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -120,10 +125,13 @@ function NewLeaveModal({
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg border border-[#E5E3F2]">
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E3F2]">
           <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-[#6C5CE7] flex items-center justify-center">
-              <Calendar className="w-3.5 h-3.5 text-white" />
+            <div className="h-7 w-7 rounded-lg bg-[#6C5CE7] flex items-center justify-center shadow-xs">
+              <Calendar className="w-4 h-4 text-white" />
             </div>
-            <h2 className="text-sm font-semibold text-[#171A2B]">New Leave Request</h2>
+            <div>
+              <h2 className="text-sm font-semibold text-[#171A2B]">Record Employee Leave / Absence</h2>
+              <p className="text-[11px] text-[#687086]">Log an authorized holiday, sickness, or unplanned absence for a staff member.</p>
+            </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-md hover:bg-[#F5F3FF] text-[#9096A9] hover:text-[#6C5CE7] transition-colors">
             <X className="w-4 h-4" />
@@ -137,7 +145,7 @@ function NewLeaveModal({
           )}
 
           <div>
-            <label className="block text-xs font-medium text-[#687086] mb-1.5">Employee</label>
+            <label className="block text-xs font-medium text-[#687086] mb-1.5">Select Employee</label>
             <select
               required value={form.employeeId}
               onChange={(e) => setForm((f) => ({ ...f, employeeId: e.target.value }))}
@@ -152,17 +160,33 @@ function NewLeaveModal({
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-[#687086] mb-1.5">Leave Type</label>
-            <select
-              value={form.leaveType}
-              onChange={(e) => setForm((f) => ({ ...f, leaveType: e.target.value as LeaveType }))}
-              className={inputCls}
-            >
-              {Object.entries(LEAVE_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-[#687086] mb-1.5">Category / Type</label>
+              <select
+                value={form.leaveType}
+                onChange={(e) => setForm((f) => ({ ...f, leaveType: e.target.value as LeaveType }))}
+                className={inputCls}
+              >
+                <option value="annual">🏖️ Annual Holiday (Leave)</option>
+                <option value="sick">🤒 Sick Leave (Absent)</option>
+                <option value="emergency">🚨 Emergency (Absent)</option>
+                <option value="unpaid">⏳ Unpaid Leave (Absent)</option>
+                <option value="other">📋 Other Authorized</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-[#687086] mb-1.5">Status Record</label>
+              <select
+                value={form.status || 'approved'}
+                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as any }))}
+                className={inputCls}
+              >
+                <option value="approved">✅ Approved Immediately</option>
+                <option value="pending">⏳ Pending Review</option>
+              </select>
+            </div>
           </div>
 
           {/* Duration Mode Selection */}
@@ -250,11 +274,11 @@ function NewLeaveModal({
 
           <div>
             <label className="block text-xs font-medium text-[#687086] mb-1.5">
-              Reason <span className="text-[#9096A9] font-normal">(optional)</span>
+              Reason / Manager Notes <span className="text-[#9096A9] font-normal">(optional)</span>
             </label>
             <textarea rows={3} value={form.reason}
               onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
-              placeholder="Brief reason for leave…"
+              placeholder="e.g. Employee phoned in sick, or holiday verbally agreed…"
               className="w-full px-3 py-2 text-sm border border-[#E5E3F2] rounded-lg bg-white text-[#171A2B] focus:outline-none focus:ring-2 focus:ring-[#6C5CE7]/40 focus:border-[#6C5CE7] shadow-[inset_0_1px_3px_rgba(108,92,231,0.06)] resize-none transition-all" />
           </div>
 
@@ -264,7 +288,7 @@ function NewLeaveModal({
               Cancel
             </button>
             <Button type="submit" size="sm" isLoading={submitting} variant="primary">
-              Submit Request
+              Record Absence / Leave
             </Button>
           </div>
         </form>
@@ -360,12 +384,50 @@ function ReviewModal({
   );
 }
 
+function getStartOfWeek(date: Date = new Date()): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff);
+  return d.toISOString().split('T')[0];
+}
+
+function getEndOfWeek(date: Date = new Date()): string {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  d.setDate(diff + 6);
+  return d.toISOString().split('T')[0];
+}
+
+function getStartOfMonth(date: Date = new Date()): string {
+  const d = new Date(date.getFullYear(), date.getMonth(), 1);
+  return d.toISOString().split('T')[0];
+}
+
+function getEndOfMonth(date: Date = new Date()): string {
+  const d = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  return d.toISOString().split('T')[0];
+}
+
+function getStartOfYear(date: Date = new Date()): string {
+  const d = new Date(date.getFullYear(), 0, 1);
+  return d.toISOString().split('T')[0];
+}
+
+function getEndOfYear(date: Date = new Date()): string {
+  const d = new Date(date.getFullYear(), 11, 31);
+  return d.toISOString().split('T')[0];
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function LeavePage() {
   const { session, isLoading: authLoading } = useAuth();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeFilter, setTimeFilter] = useState<'week' | 'month' | 'year' | 'all'>('month');
+  const [categoryFilter, setCategoryFilter] = useState<'all' | 'leave' | 'absent'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -384,11 +446,16 @@ export default function LeavePage() {
         fetchLeaveRequestsApi(),
         fetchEmployees({ page: 1, limit: 200 }),
       ]);
-      const leave = leaveData.status === 'fulfilled' ? leaveData.value : [];
+      const rawLeave = leaveData.status === 'fulfilled' ? leaveData.value : [];
+      const leave = Array.isArray(rawLeave)
+        ? rawLeave
+        : (rawLeave as any)?.data && Array.isArray((rawLeave as any).data)
+        ? (rawLeave as any).data
+        : [];
       const empResponse = empData.status === 'fulfilled' ? empData.value : null;
       const emps: Employee[] = empResponse?.items ?? [];
 
-      setRequests(Array.isArray(leave) ? leave : []);
+      setRequests(leave);
       setEmployees(emps);
     } catch {
       setRequests([]);
@@ -404,19 +471,78 @@ export default function LeavePage() {
   }, [authLoading, session]);
 
   const filtered = useMemo(() => {
+    const today = new Date();
+    const startWeek = getStartOfWeek(today);
+    const endWeek = getEndOfWeek(today);
+    const startMonth = getStartOfMonth(today);
+    const endMonth = getEndOfMonth(today);
+    const startYear = getStartOfYear(today);
+    const endYear = getEndOfYear(today);
+
     return requests.filter((r) => {
+      // 1. Time overlap filter
+      if (timeFilter === 'week') {
+        if (r.startDate > endWeek || r.endDate < startWeek) return false;
+      } else if (timeFilter === 'month') {
+        if (r.startDate > endMonth || r.endDate < startMonth) return false;
+      } else if (timeFilter === 'year') {
+        if (r.startDate > endYear || r.endDate < startYear) return false;
+      }
+
+      // 2. Category filter: Leave (Planned Holiday) vs Absent (Sick, Emergency, Unpaid)
+      const isAbsent = r.leaveType === 'sick' || r.leaveType === 'emergency' || r.leaveType === 'unpaid';
+      if (categoryFilter === 'leave' && isAbsent) return false;
+      if (categoryFilter === 'absent' && !isAbsent) return false;
+
+      // 3. Status filter
       if (statusFilter !== 'all' && r.status !== statusFilter) return false;
+
+      // 4. Granular Type filter
       if (typeFilter !== 'all' && r.leaveType !== typeFilter) return false;
+
       return true;
     });
-  }, [requests, statusFilter, typeFilter]);
+  }, [requests, timeFilter, categoryFilter, statusFilter, typeFilter]);
 
-  const stats = useMemo(() => ({
-    total: requests.length,
-    pending: requests.filter((r) => r.status === 'pending').length,
-    approved: requests.filter((r) => r.status === 'approved').length,
-    rejected: requests.filter((r) => r.status === 'rejected').length,
-  }), [requests]);
+  const timeFilteredRequests = useMemo(() => {
+    const today = new Date();
+    const startWeek = getStartOfWeek(today);
+    const endWeek = getEndOfWeek(today);
+    const startMonth = getStartOfMonth(today);
+    const endMonth = getEndOfMonth(today);
+    const startYear = getStartOfYear(today);
+    const endYear = getEndOfYear(today);
+
+    return requests.filter((r) => {
+      if (timeFilter === 'week') return r.startDate <= endWeek && r.endDate >= startWeek;
+      if (timeFilter === 'month') return r.startDate <= endMonth && r.endDate >= startMonth;
+      if (timeFilter === 'year') return r.startDate <= endYear && r.endDate >= startYear;
+      return true;
+    });
+  }, [requests, timeFilter]);
+
+  const stats = useMemo(() => {
+    const approvedInPeriod = timeFilteredRequests.filter((r) => r.status === 'approved');
+    const totalDaysTaken = approvedInPeriod.reduce((sum, r) => sum + r.totalDays, 0);
+
+    const plannedHolidayDays = approvedInPeriod
+      .filter((r) => r.leaveType === 'annual' || r.leaveType === 'other')
+      .reduce((sum, r) => sum + r.totalDays, 0);
+
+    const absenceDays = approvedInPeriod
+      .filter((r) => r.leaveType === 'sick' || r.leaveType === 'emergency' || r.leaveType === 'unpaid')
+      .reduce((sum, r) => sum + r.totalDays, 0);
+
+    const pendingCount = timeFilteredRequests.filter((r) => r.status === 'pending').length;
+
+    return {
+      totalRequests: timeFilteredRequests.length,
+      totalDaysTaken,
+      plannedHolidayDays,
+      absenceDays,
+      pendingCount,
+    };
+  }, [timeFilteredRequests]);
 
   const handleCreate = async (payload: CreateLeavePayload) => {
     const created = await createLeaveRequestApi(payload);
@@ -447,12 +573,12 @@ export default function LeavePage() {
   return (
     <AppShell>
       <PageContainer
-        title="Leave Management"
-        subtitle={`${stats.total} total requests`}
+        title="Leave & Absence Management"
+        subtitle={`${stats.totalDaysTaken} total days off (${timeFilter === 'week' ? 'this week' : timeFilter === 'month' ? 'this month' : timeFilter === 'year' ? 'this year' : 'all time'}) • ${stats.totalRequests} records`}
         primaryAction={
           <Button size="sm" variant="primary" leftIcon={<Plus className="w-4 h-4" />}
             onClick={() => setIsNewModalOpen(true)}>
-            New Request
+            Record Employee Absence / Leave
           </Button>
         }
       >
@@ -469,38 +595,135 @@ export default function LeavePage() {
         )}
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Total', value: stats.total, bg: 'bg-[#F5F3FF] border-[#E5E3F2]', color: 'text-[#171A2B]' },
-            { label: 'Pending', value: stats.pending, bg: 'bg-amber-50 border-amber-200', color: 'text-amber-700' },
-            { label: 'Approved', value: stats.approved, bg: 'bg-green-50 border-green-200', color: 'text-green-700' },
-            { label: 'Rejected', value: stats.rejected, bg: 'bg-red-50 border-red-200', color: 'text-red-700' },
-          ].map(({ label, value, bg, color }) => (
-            <div key={label} className={`rounded-xl border p-4 ${bg} shadow-[0_1px_3px_rgba(108,92,231,0.07)]`}>
-              <div className={`text-2xl font-bold ${color}`}>{value}</div>
-              <div className="text-xs text-[#687086] mt-0.5">{label}</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="rounded-xl border border-[#E5E3F2] p-4 bg-white shadow-[0_1px_3px_rgba(108,92,231,0.07)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-[#687086]">Total Time Off</span>
+              <span className="w-2 h-2 rounded-full bg-[#6C5CE7]" />
             </div>
-          ))}
+            <div className="text-2xl font-bold text-[#171A2B] mt-1">{stats.totalDaysTaken} <span className="text-xs font-normal text-[#9096A9]">days</span></div>
+            <div className="text-[11px] text-[#9096A9] mt-0.5 capitalize">
+              Approved in {timeFilter === 'all' ? 'all time' : `this ${timeFilter}`}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-emerald-100 p-4 bg-emerald-50/50 shadow-[0_1px_3px_rgba(16,185,129,0.07)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-emerald-800">Planned Holidays</span>
+              <span className="text-xs font-medium bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">Leave</span>
+            </div>
+            <div className="text-2xl font-bold text-emerald-900 mt-1">{stats.plannedHolidayDays} <span className="text-xs font-normal text-emerald-700">days</span></div>
+            <div className="text-[11px] text-emerald-700 mt-0.5">
+              Annual & planned leave
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-amber-100 p-4 bg-amber-50/50 shadow-[0_1px_3px_rgba(245,158,11,0.07)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-amber-800">Sickness & Absences</span>
+              <span className="text-xs font-medium bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded">Absent</span>
+            </div>
+            <div className="text-2xl font-bold text-amber-900 mt-1">{stats.absenceDays} <span className="text-xs font-normal text-amber-700">days</span></div>
+            <div className="text-[11px] text-amber-700 mt-0.5">
+              Sick, emergency & unpaid
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-violet-100 p-4 bg-[#F8F7FF] shadow-[0_1px_3px_rgba(108,92,231,0.07)]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-[#6C5CE7]">Awaiting Approval</span>
+              {stats.pendingCount > 0 && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              )}
+            </div>
+            <div className="text-2xl font-bold text-[#171A2B] mt-1">{stats.pendingCount} <span className="text-xs font-normal text-[#9096A9]">requests</span></div>
+            <div className="text-[11px] text-[#687086] mt-0.5">
+              Pending manager review
+            </div>
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs text-[#687086]">
-            <Filter className="w-3.5 h-3.5" /> Filter:
+        {/* Filters Toolbar */}
+        <div className="bg-white border border-[#E5E3F2] rounded-xl p-3 shadow-xs space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Time Period Filter */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-medium text-[#687086] mr-1 flex items-center gap-1">
+                <Calendar className="w-3.5 h-3.5" /> Period:
+              </span>
+              {(['week', 'month', 'year', 'all'] as const).map((tf) => (
+                <button
+                  key={tf}
+                  onClick={() => setTimeFilter(tf)}
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
+                    timeFilter === tf
+                      ? 'bg-[#6C5CE7] text-white shadow-xs font-semibold'
+                      : 'bg-[#F9F8FF] text-[#687086] hover:bg-[#EDE9FE] hover:text-[#6C5CE7] border border-transparent'
+                  }`}
+                >
+                  {tf === 'week' ? 'This Week' : tf === 'month' ? 'This Month' : tf === 'year' ? 'This Year' : 'All Time'}
+                </button>
+              ))}
+            </div>
+
+            {/* Category Filter (Leave vs Absent) */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-xs font-medium text-[#687086] mr-1">Category:</span>
+              {(
+                [
+                  { id: 'all', label: 'All Records' },
+                  { id: 'leave', label: '🏖️ Planned Leave' },
+                  { id: 'absent', label: '🏥 Absences' },
+                ] as const
+              ).map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategoryFilter(cat.id)}
+                  className={`px-3 py-1 text-xs rounded-lg font-medium transition-all ${
+                    categoryFilter === cat.id
+                      ? 'bg-[#171A2B] text-white shadow-xs font-semibold'
+                      : 'bg-[#F9F8FF] text-[#687086] hover:bg-[#EDE9FE] hover:text-[#171A2B]'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
           </div>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
-            <option value="all">All statuses</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={selectCls}>
-            <option value="all">All types</option>
-            {Object.entries(LEAVE_TYPE_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
-            ))}
-          </select>
+
+          {/* Secondary Status & Subtype Selects */}
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F0EEF8]">
+            <div className="flex items-center gap-1.5 text-xs text-[#687086]">
+              <Filter className="w-3.5 h-3.5" /> Specific Filters:
+            </div>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectCls}>
+              <option value="all">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={selectCls}>
+              <option value="all">All sub-types</option>
+              {Object.entries(LEAVE_TYPE_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+
+            {(timeFilter !== 'year' || categoryFilter !== 'all' || statusFilter !== 'all' || typeFilter !== 'all') && (
+              <button
+                onClick={() => {
+                  setTimeFilter('year');
+                  setCategoryFilter('all');
+                  setStatusFilter('all');
+                  setTypeFilter('all');
+                }}
+                className="text-xs text-[#6C5CE7] hover:underline ml-auto flex items-center gap-1 font-medium"
+              >
+                Reset all filters
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Table */}
@@ -521,7 +744,7 @@ export default function LeavePage() {
               {statusFilter === 'all' && typeFilter === 'all' && (
                 <Button size="sm" variant="primary" leftIcon={<Plus className="w-3.5 h-3.5" />}
                   className="mt-4" onClick={() => setIsNewModalOpen(true)}>
-                  New Request
+                  Record Employee Absence / Leave
                 </Button>
               )}
             </div>
@@ -556,7 +779,29 @@ export default function LeavePage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-[#171A2B]">{LEAVE_TYPE_LABELS[req.leaveType]}</td>
+                      <td className="px-4 py-3">
+                        {req.leaveType === 'sick' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            🤒 Sick (Absent)
+                          </span>
+                        ) : req.leaveType === 'emergency' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                            🚨 Emergency (Absent)
+                          </span>
+                        ) : req.leaveType === 'unpaid' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            ⏳ Unpaid (Absent)
+                          </span>
+                        ) : req.leaveType === 'annual' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            🏖️ Holiday (Leave)
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            📋 Other (Leave)
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-xs text-[#687086] whitespace-nowrap">
                         {req.startDate === req.endDate ? (
                           <span className="inline-flex items-center gap-1.5 font-medium text-[#171A2B]">

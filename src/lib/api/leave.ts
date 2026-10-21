@@ -44,6 +44,7 @@ export interface CreateLeavePayload {
   startDate: string;
   endDate: string;
   reason?: string;
+  status?: 'pending' | 'approved';
 }
 
 export interface ReviewLeavePayload {
@@ -74,9 +75,10 @@ export async function fetchLeaveRequestsApi(params: {
         throw new Error(err?.error?.message || 'Failed to fetch leave requests');
       }
       const json = await res.json();
-      return json.data;
+      const raw = json.data?.data !== undefined ? json.data.data : (json.data ?? json);
+      return Array.isArray(raw) ? raw : [];
     },
-    { ttlMs: 30 * 1000 }
+    { ttlMs: 5 * 1000 }
   );
 }
 
@@ -92,7 +94,7 @@ export async function createLeaveRequestApi(payload: CreateLeavePayload): Promis
   }
   apiCache.invalidate('leave');
   const json = await res.json();
-  return json.data;
+  return json.data?.data !== undefined ? json.data.data : (json.data ?? json);
 }
 
 export async function reviewLeaveRequestApi(id: string, payload: ReviewLeavePayload): Promise<LeaveRequest> {
@@ -107,7 +109,7 @@ export async function reviewLeaveRequestApi(id: string, payload: ReviewLeavePayl
   }
   apiCache.invalidate('leave');
   const json = await res.json();
-  return json.data;
+  return json.data?.data !== undefined ? json.data.data : (json.data ?? json);
 }
 
 export async function cancelLeaveRequestApi(id: string): Promise<LeaveRequest> {
@@ -121,7 +123,7 @@ export async function cancelLeaveRequestApi(id: string): Promise<LeaveRequest> {
   }
   apiCache.invalidate('leave');
   const json = await res.json();
-  return json.data;
+  return json.data?.data !== undefined ? json.data.data : (json.data ?? json);
 }
 
 export async function fetchLeaveStatsApi(employeeId: string): Promise<LeaveStats> {

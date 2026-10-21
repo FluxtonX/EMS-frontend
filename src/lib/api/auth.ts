@@ -18,7 +18,10 @@ export class ApiError extends Error {
 async function handleResponse<T>(res: Response): Promise<T> {
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const errorMsg = json?.error?.message || json?.message || 'A network error occurred. Please try again.';
+    let errorMsg = json?.error?.message || json?.message || 'A network error occurred. Please try again.';
+    if (typeof errorMsg === 'string' && errorMsg.startsWith('Cannot ')) {
+      errorMsg = 'Backend service route unavailable. Please check that the server is running properly.';
+    }
     const errorCode = json?.error?.code || 'UNKNOWN_ERROR';
     const errorDetails = json?.error?.details || null;
     throw new ApiError(errorMsg, errorCode, errorDetails, res.status);

@@ -68,6 +68,8 @@ import {
   AlertTriangle,
   ArrowUpRight,
   Radio,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth/AuthContext';
@@ -123,6 +125,7 @@ function EmployeesContent() {
   const [wizardSiteJobs, setWizardSiteJobs] = useState<SiteJob[]>([]);
   const [isSiteJobsLoading, setIsSiteJobsLoading] = useState(false);
   const [resendingId, setResendingId] = useState<string | null>(null);
+  const [showEmployeePassword, setShowEmployeePassword] = useState(false);
 
   const [formData, setFormData] = useState({
     // Step 1: Personal
@@ -426,6 +429,7 @@ function EmployeesContent() {
       licenceNumber: '',
       licenceExpiryDate: '',
     });
+    setShowEmployeePassword(false);
   };
 
   const handleWizardSubmit = async (e?: React.FormEvent) => {
@@ -1171,11 +1175,22 @@ function EmployeesContent() {
                       Account Password *
                     </label>
                     <Input
-                      type="password"
+                      type={showEmployeePassword ? 'text' : 'password'}
                       required
                       placeholder="Create login password"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      rightIcon={
+                        <button
+                          type="button"
+                          onClick={() => setShowEmployeePassword(!showEmployeePassword)}
+                          className="text-[#687086] hover:text-[#171A2B] focus:outline-none transition-colors flex items-center justify-center cursor-pointer p-0.5"
+                          aria-label={showEmployeePassword ? 'Hide password' : 'Show password'}
+                          tabIndex={-1}
+                        >
+                          {showEmployeePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      }
                     />
                   </div>
                 </div>
@@ -1575,11 +1590,22 @@ function EmployeesContent() {
                       Create a password for <strong>{formData.email || 'this employee'}</strong> to enable immediate login to their workforce portal.
                     </p>
                     <Input
-                      type="password"
+                      type={showEmployeePassword ? 'text' : 'password'}
                       placeholder="Create account password (min 6 characters) *"
                       value={formData.password}
                       onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                       className="bg-white text-xs border-[#D5D0FA] focus:border-[#6C5CE7]"
+                      rightIcon={
+                        <button
+                          type="button"
+                          onClick={() => setShowEmployeePassword(!showEmployeePassword)}
+                          className="text-[#687086] hover:text-[#171A2B] focus:outline-none transition-colors flex items-center justify-center cursor-pointer p-0.5"
+                          aria-label={showEmployeePassword ? 'Hide password' : 'Show password'}
+                          tabIndex={-1}
+                        >
+                          {showEmployeePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      }
                     />
                   </div>
                 </div>
