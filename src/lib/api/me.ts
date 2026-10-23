@@ -180,6 +180,8 @@ export async function createMyLicence(payload: {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to submit SIA licence.');
   }
+  apiCache.invalidate('licences');
+  apiCache.invalidate('compliance');
   const json = await res.json();
   return json.data || json;
 }

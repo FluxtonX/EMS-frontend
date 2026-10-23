@@ -22,11 +22,13 @@ import {
   ChevronRight,
   Filter,
   Info,
+  RefreshCw,
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
 import { AttendanceRecord, AttendanceStatus, VarianceFlag } from '@/types/attendance';
 import { Site } from '@/types/site';
 import { Employee } from '@/types/employee';
+import { AttendanceMapModal } from '@/components/attendance/AttendanceMapModal';
 import {
   fetchAttendanceRecordsApi,
   clockInApi,
@@ -38,6 +40,7 @@ import {
 import { fetchSites } from '@/lib/api/sites';
 import { fetchEmployees } from '@/lib/api/employees';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { toast } from '@/lib/toastStore';
 
 export default function AttendancePage() {
   const { session, isLoading: authLoading } = useAuth();
@@ -58,6 +61,8 @@ export default function AttendancePage() {
   // Modals
   const [isClockInOpen, setIsClockInOpen] = useState(false);
   const [reconcileRecord, setReconcileRecord] = useState<AttendanceRecord | null>(null);
+  const [mapTargetRecord, setMapTargetRecord] = useState<AttendanceRecord | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Clock In Form State
   const [clockInForm, setClockInForm] = useState({
@@ -81,8 +86,9 @@ export default function AttendancePage() {
   const [reconcileLoading, setReconcileLoading] = useState(false);
   const [reconcileError, setReconcileError] = useState<string | null>(null);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setIsRefreshing(true);
     setError(null);
     try {
       const [attData, sitesData, empsData] = await Promise.all([
@@ -101,18 +107,28 @@ export default function AttendancePage() {
       setSites(sitesData || []);
       setEmployees(empsData?.items || []);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load attendance records from database.');
-      setRecords([]);
-      setSites([]);
-      setEmployees([]);
+      if (!silent) {
+        setError(err?.message || 'Failed to load attendance records from database.');
+        setRecords([]);
+        setSites([]);
+        setEmployees([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
   useEffect(() => {
     if (!authLoading && session) {
       loadData();
+
+      // Real-time automatic polling every 10 seconds for live attendance updates
+      const interval = setInterval(() => {
+        loadData(true);
+      }, 10000);
+
+      return () => clearInterval(interval);
     }
   }, [authLoading, session, selectedDate, selectedSiteId, statusFilter, varianceFilter]);
 
@@ -342,14 +358,33 @@ export default function AttendancePage() {
           { label: 'Attendance' },
         ]}
         primaryAction={
-          <Button
-            variant="primary"
-            size="sm"
-            leftIcon={<Plus className="h-4 w-4" />}
-            onClick={() => setIsClockInOpen(true)}
-          >
-            Record Clock-In
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${
+                    isRefreshing ? 'animate-spin text-[#6C5CE7]' : ''
+                  }`}
+                />
+              }
+              onClick={() => {
+                loadData(true);
+                toast.success('Attendance records refreshed.');
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus className="h-4 w-4" />}
+              onClick={() => setIsClockInOpen(true)}
+            >
+              Record Clock-In
+            </Button>
+          </div>
         }
       >
 
@@ -590,7 +625,18 @@ export default function AttendancePage() {
 
                         {/* Actions */}
                         <td className="px-4 py-3 text-right">
-                          <div className="inline-flex items-center gap-1">
+                          <div className="inline-flex items-center gap-1.5">
+                            {/* View Map Action (Left Side) */}
+                            <button
+                              type="button"
+                              onClick={() => setMapTargetRecord(r)}
+                              title="View Live Satellite & Street Map"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-[#EDE9FE] hover:bg-[#D5D0FA] text-[#6C5CE7] border border-[#D5D0FA] transition-colors shadow-2xs"
+                            >
+                              <MapPin className="h-3 w-3 text-[#6C5CE7]" />
+                              View Map
+                            </button>
+
                             {r.status === 'clocked_in' && (
                               <>
                                 <button
@@ -921,6 +967,17 @@ export default function AttendancePage() {
             </div>
           </div>
         )}
+
+        {/* Live Multi-Layer Geofence Map Modal */}
+        <AttendanceMapModal
+          isOpen={!!mapTargetRecord}
+          onClose={() => setMapTargetRecord(null)}
+          record={mapTargetRecord}
+          onReconcile={(rec) => {
+            setMapTargetRecord(null);
+            openReconcile(rec);
+          }}
+        />
       </PageContainer>
     </AppShell>
   );

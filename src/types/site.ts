@@ -37,6 +37,9 @@ export interface Site {
   contactName?: string;
   contactPhone?: string;
   contactEmail?: string;
+  latitude?: number;
+  longitude?: number;
+  geofenceRadius?: number;
   status: 'active' | 'inactive' | 'archived';
   configuredJobsCount?: number;
   jobs?: SiteJob[];

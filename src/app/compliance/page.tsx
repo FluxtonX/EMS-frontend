@@ -33,6 +33,7 @@ import {
   Eye,
   X,
   Image as ImageIcon,
+  RefreshCw,
 } from 'lucide-react';
 import {
   fetchLicencesApi,
@@ -44,6 +45,8 @@ import {
 import { fetchEmployees } from '@/lib/api/employees';
 import { EmployeeLicence, LicenceStatus } from '@/types/licence';
 import { useAuth } from '@/lib/auth/AuthContext';
+import { toast } from '@/lib/toastStore';
+import { apiCache } from '@/lib/cache/apiCache';
 
 export default function CompliancePage() {
   const queryClient = useQueryClient();
@@ -69,6 +72,7 @@ export default function CompliancePage() {
     licences,
     complianceSummary: summary,
     isLicencesLoading,
+    isLicencesRefreshing,
     fetchLicences: syncLicences,
     createLicence: storeCreateLicence,
     verifyLicence: storeVerifyLicence,
@@ -81,8 +85,17 @@ export default function CompliancePage() {
 
   useEffect(() => {
     if (!authLoading && session) {
-      syncLicences();
-      syncEmployees();
+      // Force initial fresh data fetch
+      apiCache.invalidate('licences');
+      syncLicences(true);
+      syncEmployees(true);
+
+      // Automated real-time polling every 8s so owner receives new submissions instantly
+      const interval = setInterval(() => {
+        syncLicences(true);
+      }, 8000);
+
+      return () => clearInterval(interval);
     }
   }, [authLoading, session, syncLicences, syncEmployees]);
 
@@ -91,8 +104,11 @@ export default function CompliancePage() {
     mutationFn: (payload: { employeeId: string; data: any }) =>
       storeCreateLicence(payload.employeeId, payload.data),
     onSuccess: () => {
+      apiCache.invalidate('licences');
       queryClient.invalidateQueries({ queryKey: ['licences'] });
       queryClient.invalidateQueries({ queryKey: ['compliance-summary'] });
+      syncLicences(true);
+      toast.success('SIA Licence registered successfully.');
       setIsAddModalOpen(false);
       setFormData({
         employeeId: '',
@@ -105,6 +121,7 @@ export default function CompliancePage() {
     },
     onError: (err: any) => {
       setFormError(err?.message || 'Failed to register licence.');
+      toast.error(err?.message || 'Failed to register licence.');
     },
   });
 
@@ -124,10 +141,22 @@ export default function CompliancePage() {
   const verifyMutation = useMutation({
     mutationFn: (payload: { id: string; status: any }) =>
       storeVerifyLicence(payload.id, payload.status),
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      apiCache.invalidate('licences');
       queryClient.invalidateQueries({ queryKey: ['licences'] });
       queryClient.invalidateQueries({ queryKey: ['compliance-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+      syncLicences(true);
+      if (variables.status === 'valid') {
+        toast.success('SIA Licence verified and approved successfully.');
+      } else {
+        toast.info('SIA Licence rejected. Notification sent to security officer.');
+      }
       setVerifyTarget(null);
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to update licence verification status.');
     },
   });
 
@@ -135,8 +164,14 @@ export default function CompliancePage() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => storeDeleteLicence(id),
     onSuccess: () => {
+      apiCache.invalidate('licences');
       queryClient.invalidateQueries({ queryKey: ['licences'] });
       queryClient.invalidateQueries({ queryKey: ['compliance-summary'] });
+      syncLicences(true);
+      toast.success('Licence deleted successfully.');
+    },
+    onError: (err: any) => {
+      toast.error(err?.message || 'Failed to delete licence.');
     },
   });
 
@@ -276,17 +311,37 @@ export default function CompliancePage() {
           { label: 'Compliance' },
         ]}
         primaryAction={
-          <Button
-            variant="primary"
-            size="sm"
-            leftIcon={<Plus className="h-4 w-4" />}
-            onClick={() => {
-              setFormError(null);
-              setIsAddModalOpen(true);
-            }}
-          >
-            Add / Verify Licence
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={
+                <RefreshCw
+                  className={`h-3.5 w-3.5 ${
+                    isLicencesRefreshing ? 'animate-spin text-[#6C5CE7]' : ''
+                  }`}
+                />
+              }
+              onClick={() => {
+                apiCache.invalidate('licences');
+                syncLicences(true);
+                toast.success('Licences refreshed.');
+              }}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus className="h-4 w-4" />}
+              onClick={() => {
+                setFormError(null);
+                setIsAddModalOpen(true);
+              }}
+            >
+              Add / Verify Licence
+            </Button>
+          </div>
         }
       >
 

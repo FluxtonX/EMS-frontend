@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Button, Input, Badge, Modal, TableSkeleton, EmptyState } from '@/components/ui';
 import { toast } from '@/lib/toastStore';
+import { useWorkforceStore } from '@/lib/stores/workforceStore';
 
 export default function EmployeeLicencesPage() {
   const queryClient = useQueryClient();
@@ -39,13 +40,15 @@ export default function EmployeeLicencesPage() {
   });
 
   const submitMutation = useMutation({
-    mutationFn: () =>
-      createMyLicence({
+    mutationFn: () => {
+      const cleanLic = licenceNumber.replace(/\D/g, '');
+      return createMyLicence({
         licenceType,
-        licenceNumber: licenceNumber.trim(),
+        licenceNumber: cleanLic,
         expiryDate,
         documentUrl: documentUrl || undefined,
-      }),
+      });
+    },
     onSuccess: () => {
       toast.success('SIA Licence submitted successfully for company verification.');
       setIsSubmitModalOpen(false);
@@ -55,6 +58,12 @@ export default function EmployeeLicencesPage() {
       setDocumentUrl('');
       queryClient.invalidateQueries({ queryKey: ['my-licences'] });
       queryClient.invalidateQueries({ queryKey: ['my-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['licences'] });
+      queryClient.invalidateQueries({ queryKey: ['compliance-summary'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-list'] });
+      queryClient.invalidateQueries({ queryKey: ['notifications-unread-count'] });
+      // Force instant refresh on central workforce store
+      useWorkforceStore.getState().fetchLicences(true);
     },
     onError: (err: any) => {
       toast.error(err?.message || 'Failed to submit SIA licence.');
