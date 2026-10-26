@@ -93,6 +93,7 @@ export default function PayrollPage() {
       acc.totalGross += pr.totalGross;
       acc.totalTax += pr.totalTax;
       acc.totalNi += pr.totalNi;
+      acc.totalPension += (pr.totalPensionEmployee || 0);
       acc.totalNet += pr.totalNet;
       acc.totalEmployees += pr.totalEmployees;
       if (pr.status === 'paid') acc.paidCount++;
@@ -103,6 +104,7 @@ export default function PayrollPage() {
       totalGross: 0,
       totalTax: 0,
       totalNi: 0,
+      totalPension: 0,
       totalNet: 0,
       totalEmployees: 0,
       paidCount: 0,
@@ -752,23 +754,34 @@ export default function PayrollPage() {
                 {/* Deductions Table */}
                 <div>
                   <h5 className="font-semibold text-[#171A2B] mb-2 uppercase text-[10px] tracking-wider text-[#687086]">
-                    HMRC Statutory Deductions
+                    HMRC Statutory Deductions & Pension
                   </h5>
                   <div className="space-y-1.5">
                     <div className="flex justify-between">
-                      <span className="text-[#687086]">PAYE Income Tax (Basic 20%)</span>
+                      <span className="text-[#687086]">PAYE Income Tax (Tax Code: {viewingPayslip.taxCode || '1257L'})</span>
                       <span className="font-mono text-amber-700">-£{viewingPayslip.taxDeduction.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-[#687086]">Class 1 National Insurance (8%)</span>
+                      <span className="text-[#687086]">Class 1 National Insurance</span>
                       <span className="font-mono text-[#6C5CE7]">-£{viewingPayslip.nationalInsurance.toFixed(2)}</span>
                     </div>
+                    {(viewingPayslip.pensionEmployee ?? 0) > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-[#687086]">Workplace Pension (5% Auto-Enrolment)</span>
+                        <span className="font-mono text-emerald-700">-£{(viewingPayslip.pensionEmployee || 0).toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between font-bold border-t border-[#E5E3F2] pt-1.5 text-rose-700">
                       <span>Total Deductions</span>
                       <span className="font-mono">
-                        -£{(viewingPayslip.taxDeduction + viewingPayslip.nationalInsurance).toFixed(2)}
+                        -£{(viewingPayslip.taxDeduction + viewingPayslip.nationalInsurance + (viewingPayslip.pensionEmployee || 0)).toFixed(2)}
                       </span>
                     </div>
+                    {(viewingPayslip.pensionEmployer ?? 0) > 0 && (
+                      <div className="text-[10px] text-gray-500 pt-1 text-right">
+                        Employer Pension Contribution: +£{(viewingPayslip.pensionEmployer || 0).toFixed(2)} (3%)
+                      </div>
+                    )}
                   </div>
                 </div>
 

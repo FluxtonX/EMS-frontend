@@ -113,6 +113,17 @@ export async function fetchMyAttendance() {
   return json.data || json;
 }
 
+function notifyAttendanceUpdated() {
+  apiCache.invalidate('attendance');
+  if (typeof window !== 'undefined') {
+    try {
+      window.localStorage.setItem('workforce_attendance_mutation', Date.now().toString());
+    } catch {
+      // Ignore storage errors
+    }
+  }
+}
+
 export async function clockInMyAttendance(payload: {
   siteId?: string;
   shiftId?: string;
@@ -130,6 +141,35 @@ export async function clockInMyAttendance(payload: {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Clock-in failed.');
   }
+  notifyAttendanceUpdated();
+  const json = await res.json();
+  return json.data || json;
+}
+
+export async function startMyBreak() {
+  const res = await fetch(`${API_BASE_URL}/me/attendance/break/start`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to start break.');
+  }
+  notifyAttendanceUpdated();
+  const json = await res.json();
+  return json.data || json;
+}
+
+export async function endMyBreak() {
+  const res = await fetch(`${API_BASE_URL}/me/attendance/break/end`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to end break.');
+  }
+  notifyAttendanceUpdated();
   const json = await res.json();
   return json.data || json;
 }
@@ -149,6 +189,7 @@ export async function clockOutMyAttendance(payload?: {
     const errorJson = await res.json().catch(() => ({}));
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Clock-out failed.');
   }
+  notifyAttendanceUpdated();
   const json = await res.json();
   return json.data || json;
 }
@@ -214,6 +255,18 @@ export async function createMyLeaveRequest(payload: {
     throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to submit leave request.');
   }
   apiCache.invalidate('leave');
+  const json = await res.json();
+  return json.data || json;
+}
+
+export async function fetchMyEarnings() {
+  const res = await fetch(`${API_BASE_URL}/me/earnings`, {
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch earnings summary.');
+  }
   const json = await res.json();
   return json.data || json;
 }

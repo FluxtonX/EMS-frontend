@@ -51,7 +51,8 @@ export async function generateReportApi(payload: GenerateReportPayload): Promise
         throw new Error(err?.error?.message || 'Failed to generate report');
       }
       const json = await res.json();
-      return json.data;
+      const report = json.data?.data || json.data || json;
+      return report;
     },
     { ttlMs: 3 * 60 * 1000 }
   );

@@ -157,8 +157,21 @@ export default function ReportsPage() {
     setSelectedType(null);
   };
 
+  const rows: Record<string, any>[] = React.useMemo(() => {
+    if (!result) return [];
+    if (Array.isArray(result.rows)) return result.rows;
+    if (Array.isArray((result as any).data?.rows)) return (result as any).data.rows;
+    if (Array.isArray((result as any).data)) return (result as any).data;
+    return [];
+  }, [result]);
+
+  const summary: Record<string, any> = React.useMemo(() => {
+    if (!result) return {};
+    return result.summary || (result as any).data?.summary || {};
+  }, [result]);
+
   // Column headers from first row
-  const columns = result && result.rows.length > 0 ? Object.keys(result.rows[0]) : [];
+  const columns = rows.length > 0 ? Object.keys(rows[0]) : [];
 
   return (
     <AppShell>
@@ -289,9 +302,9 @@ export default function ReportsPage() {
             </div>
 
             {/* Summary KPIs */}
-            {Object.keys(result.summary).length > 0 && (
+            {Object.keys(summary).length > 0 && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-5 my-6">
-                {Object.entries(result.summary).map(([k, v]) => (
+                {Object.entries(summary).map(([k, v]) => (
                   <SummaryCard
                     key={k}
                     label={k.replace(/_/g, ' ')}
@@ -302,7 +315,7 @@ export default function ReportsPage() {
             )}
 
             {/* Data table */}
-            {result.rows.length === 0 ? (
+            {rows.length === 0 ? (
               <div className="bg-white border border-[#E5E3F2] rounded-2xl p-12 text-center shadow-[0_1px_4px_rgba(108,92,231,0.07)] my-6">
                 <BarChart3 className="w-10 h-10 text-[#D5D0FA] mx-auto mb-3" />
                 <p className="text-sm font-medium text-[#171A2B]">No data for this period</p>
@@ -323,7 +336,7 @@ export default function ReportsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F0EEF8]">
-                      {result.rows.slice(0, 200).map((row, i) => (
+                      {rows.slice(0, 200).map((row, i) => (
                         <tr key={i} className="hover:bg-[#F9F8FF] transition-colors">
                           {columns.map((col) => (
                             <td key={col} className="px-4 py-2.5 whitespace-nowrap text-[#171A2B]">
@@ -337,9 +350,9 @@ export default function ReportsPage() {
                     </tbody>
                   </table>
                 </div>
-                {result.rows.length > 200 && (
+                {rows.length > 200 && (
                   <div className="px-4 py-3 border-t border-[#E5E3F2] bg-[#FAFAFA] text-xs text-[#687086]">
-                    Showing first 200 of {result.rows.length} rows — export CSV for full data
+                    Showing first 200 of {rows.length} rows — export CSV for full data
                   </div>
                 )}
               </div>

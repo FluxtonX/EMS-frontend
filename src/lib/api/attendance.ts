@@ -20,30 +20,29 @@ export async function fetchAttendanceRecordsApi(params: {
 } = {}): Promise<AttendanceRecord[]> {
   const url = new URL(`${API_BASE_URL}/attendance`);
   if (params.employeeId) url.searchParams.append('employeeId', params.employeeId);
-  if (params.siteId) url.searchParams.append('siteId', params.siteId);
+  if (params.siteId && params.siteId !== 'all') url.searchParams.append('siteId', params.siteId);
   if (params.startDate) url.searchParams.append('startDate', params.startDate);
   if (params.endDate) url.searchParams.append('endDate', params.endDate);
   if (params.status && params.status !== 'all') url.searchParams.append('status', params.status);
   if (params.varianceFlag && params.varianceFlag !== 'all')
     url.searchParams.append('varianceFlag', params.varianceFlag);
 
-  const cacheKey = `attendance:records:${url.searchParams.toString()}`;
+  url.searchParams.append('_t', Date.now().toString());
 
-  return apiCache.withCache(
-    cacheKey,
-    async () => {
-      const res = await fetch(url.toString(), {
-        headers: getAuthHeaders(),
-      });
-      if (!res.ok) {
-        const errorJson = await res.json().catch(() => ({}));
-        throw new Error(errorJson?.error?.message || 'Failed to fetch attendance records.');
-      }
-      const json = await res.json();
-      return json.data;
+  const res = await fetch(url.toString(), {
+    headers: {
+      ...getAuthHeaders(),
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
     },
-    { ttlMs: 2 * 60 * 1000 }
-  );
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || 'Failed to fetch attendance records.');
+  }
+  const json = await res.json();
+  return json.data;
 }
 
 export async function clockInApi(payload: ClockInPayload): Promise<AttendanceRecord> {

@@ -18,6 +18,7 @@ import {
   X,
   Bell,
   MessageSquare,
+  Wallet,
 } from 'lucide-react';
 import { fetchMyOverview } from '@/lib/api/me';
 import { fetchUnreadChatCount } from '@/lib/api/chat';
@@ -65,7 +66,8 @@ export default function EmployeePortalLayout({
     { label: 'Dashboard', href: '/employee', icon: LayoutDashboard },
     { label: 'Dispatch Chat', href: '/employee/chat', icon: MessageSquare, dynamicChatBadge: true },
     { label: 'My Shifts & Rota', href: '/employee/shifts', icon: CalendarDays },
-    { label: 'Check In & Punch', href: '/employee/attendance', icon: Clock },
+    { label: 'My Attendance', href: '/employee/attendance', icon: Clock },
+    { label: 'My Earnings', href: '/employee/earnings', icon: Wallet },
     { label: 'My Assignment', href: '/employee/assignment', icon: Briefcase },
     { label: 'Licences & SIA', href: '/employee/licences', icon: ShieldCheck },
     { label: 'Leave & Time Off', href: '/employee/leave', icon: CalendarCheck },
@@ -75,8 +77,9 @@ export default function EmployeePortalLayout({
   const bottomNavItems = [
     { label: 'Home', href: '/employee', icon: LayoutDashboard },
     { label: 'Shifts', href: '/employee/shifts', icon: CalendarDays },
+    { label: 'Attendance', href: '/employee/attendance', icon: Clock },
+    { label: 'Earnings', href: '/employee/earnings', icon: Wallet },
     { label: 'Chat', href: '/employee/chat', icon: MessageSquare, dynamicChatBadge: true },
-    { label: 'Check In', href: '/employee/attendance', icon: Clock },
     { label: 'Leave', href: '/employee/leave', icon: CalendarCheck },
     { label: 'Profile', href: '/employee/profile', icon: User },
   ];

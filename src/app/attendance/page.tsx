@@ -42,6 +42,18 @@ import { fetchEmployees } from '@/lib/api/employees';
 import { useAuth } from '@/lib/auth/AuthContext';
 import { toast } from '@/lib/toastStore';
 
+export function formatGeofenceDistance(distanceMeters?: number | null): string {
+  if (distanceMeters === undefined || distanceMeters === null) return '';
+  if (distanceMeters < 1000) {
+    return `${Math.round(distanceMeters)}m`;
+  }
+  const km = distanceMeters / 1000;
+  if (km >= 100) {
+    return `${Math.round(km).toLocaleString('en-GB')} km`;
+  }
+  return `${km.toFixed(1)} km`;
+}
+
 export default function AttendancePage() {
   const { session, isLoading: authLoading } = useAuth();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -86,32 +98,41 @@ export default function AttendancePage() {
   const [reconcileLoading, setReconcileLoading] = useState(false);
   const [reconcileError, setReconcileError] = useState<string | null>(null);
 
+  // Fetch static sites and active employees once on session load
+  useEffect(() => {
+    if (!authLoading && session) {
+      Promise.all([
+        fetchSites(),
+        fetchEmployees({ status: 'active', limit: 100 }),
+      ])
+        .then(([sitesData, empsData]) => {
+          setSites(sitesData || []);
+          setEmployees(empsData?.items || []);
+        })
+        .catch((err) => {
+          console.error('Failed to load sites/employees metadata:', err);
+        });
+    }
+  }, [authLoading, session]);
+
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true);
     else setIsRefreshing(true);
     setError(null);
     try {
-      const [attData, sitesData, empsData] = await Promise.all([
-        fetchAttendanceRecordsApi({
-          startDate: selectedDate,
-          endDate: selectedDate,
-          siteId: selectedSiteId === 'all' ? undefined : selectedSiteId,
-          status: statusFilter === 'all' ? undefined : statusFilter,
-          varianceFlag: varianceFilter === 'all' ? undefined : varianceFilter,
-        }),
-        fetchSites(),
-        fetchEmployees({ status: 'active', limit: 100 }),
-      ]);
+      const attData = await fetchAttendanceRecordsApi({
+        startDate: selectedDate || undefined,
+        endDate: selectedDate || undefined,
+        siteId: selectedSiteId === 'all' ? undefined : selectedSiteId,
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        varianceFlag: varianceFilter === 'all' ? undefined : varianceFilter,
+      });
 
       setRecords(attData || []);
-      setSites(sitesData || []);
-      setEmployees(empsData?.items || []);
     } catch (err: any) {
       if (!silent) {
         setError(err?.message || 'Failed to load attendance records from database.');
         setRecords([]);
-        setSites([]);
-        setEmployees([]);
       }
     } finally {
       if (!silent) setLoading(false);
@@ -123,12 +144,23 @@ export default function AttendancePage() {
     if (!authLoading && session) {
       loadData();
 
-      // Real-time automatic polling every 10 seconds for live attendance updates
+      // Lightweight periodic polling every 15s for attendance updates only
       const interval = setInterval(() => {
         loadData(true);
-      }, 10000);
+      }, 15000);
 
-      return () => clearInterval(interval);
+      // Instant cross-tab real-time sync when an employee or manager mutates attendance
+      const handleStorageUpdate = (e: StorageEvent) => {
+        if (e.key === 'workforce_attendance_mutation') {
+          loadData(true);
+        }
+      };
+      window.addEventListener('storage', handleStorageUpdate);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('storage', handleStorageUpdate);
+      };
     }
   }, [authLoading, session, selectedDate, selectedSiteId, statusFilter, varianceFilter]);
 
@@ -429,22 +461,51 @@ export default function AttendancePage() {
 
         {/* Filters & Date Selector */}
         <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] my-6">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-[#6C5CE7]" />
-            <input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="text-xs font-semibold text-[#171A2B] border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-            />
-            <span className="text-xs text-[#687086] hidden sm:inline font-medium">
-              {new Date(selectedDate).toLocaleDateString('en-GB', {
-                weekday: 'long',
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-              })}
-            </span>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 bg-[#FDFCFE] border border-[#E5E3F2] rounded-lg px-2.5 py-1.5">
+              <Calendar className="h-4 w-4 text-[#6C5CE7]" />
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="text-xs font-semibold text-[#171A2B] outline-none bg-transparent"
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                selectedDate === new Date().toISOString().split('T')[0]
+                  ? 'bg-[#6C5CE7] text-white border-[#6C5CE7] shadow-xs'
+                  : 'bg-white text-slate-700 border-[#E5E3F2] hover:bg-[#F5F3FF] hover:border-[#D5D0FA] hover:text-[#6C5CE7]'
+              }`}
+            >
+              Today
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedDate('')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                selectedDate === ''
+                  ? 'bg-[#6C5CE7] text-white border-[#6C5CE7] shadow-xs'
+                  : 'bg-white text-slate-700 border-[#E5E3F2] hover:bg-[#F5F3FF] hover:border-[#D5D0FA] hover:text-[#6C5CE7]'
+              }`}
+            >
+              All Records
+            </button>
+
+            <button
+              type="button"
+              onClick={() => loadData(false)}
+              disabled={loading || isRefreshing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#E5E3F2] hover:bg-[#F5F3FF] hover:border-[#D5D0FA] hover:text-[#6C5CE7] text-slate-700 shadow-2xs transition-all disabled:opacity-50"
+              title="Refresh Live Attendance"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 text-[#6C5CE7] ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -583,18 +644,34 @@ export default function AttendancePage() {
                           <div className="mt-0.5">
                             {r.clockInVerified ? (
                               <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
-                                <ShieldCheck className="h-3 w-3 text-emerald-600" />
+                                <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
                                 {r.clockInDistance !== undefined
-                                  ? `${r.clockInDistance}m from site`
+                                  ? `${formatGeofenceDistance(r.clockInDistance)} from site`
                                   : 'Verified Geofence'}
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-rose-700 font-bold">
-                                <AlertTriangle className="h-3 w-3 text-rose-600" />
-                                {r.clockInDistance !== undefined
-                                  ? `${r.clockInDistance}m (Breach)`
-                                  : 'Outside Geofence'}
-                              </span>
+                              (() => {
+                                const isFarBreach = (r.clockInDistance ?? 0) > 1000;
+                                return (
+                                  <span
+                                    className={`inline-flex items-center gap-1 text-[10px] font-bold ${
+                                      isFarBreach ? 'text-rose-700' : 'text-amber-700'
+                                    }`}
+                                    title={
+                                      isFarBreach
+                                        ? `Remote Off-Site: Officer is ${formatGeofenceDistance(r.clockInDistance)} from site perimeter.`
+                                        : `Perimeter Variance: Officer is ${formatGeofenceDistance(r.clockInDistance)} from site boundary.`
+                                    }
+                                  >
+                                    <AlertTriangle className={`h-3 w-3 shrink-0 ${isFarBreach ? 'text-rose-600' : 'text-amber-600'}`} />
+                                    {r.clockInDistance !== undefined
+                                      ? isFarBreach
+                                        ? `${formatGeofenceDistance(r.clockInDistance)} (Off-Site)`
+                                        : `${formatGeofenceDistance(r.clockInDistance)} (Perimeter Variance)`
+                                      : 'Outside Geofence'}
+                                  </span>
+                                );
+                              })()
                             )}
                           </div>
                         </td>
@@ -603,9 +680,39 @@ export default function AttendancePage() {
                         <td className="px-4 py-3">
                           <p className="font-semibold text-[#171A2B]">{clockOutTimeStr}</p>
                           {r.clockOutTime && (
-                            <span className="text-[10px] text-[#687086]">
-                              {r.clockOutVerified ? 'Verified' : 'Out of Geofence'}
-                            </span>
+                            <div className="mt-0.5">
+                              {r.clockOutVerified ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
+                                  <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
+                                  {r.clockOutDistance !== undefined
+                                    ? `Verified (${formatGeofenceDistance(r.clockOutDistance)})`
+                                    : 'Verified Geofence'}
+                                </span>
+                              ) : (
+                                (() => {
+                                  const isFarBreach = (r.clockOutDistance ?? 0) > 1000;
+                                  return (
+                                    <span
+                                      className={`inline-flex items-center gap-1 text-[10px] font-bold ${
+                                        isFarBreach ? 'text-rose-700' : 'text-amber-700'
+                                      }`}
+                                      title={
+                                        isFarBreach
+                                          ? `Remote Clock-Out: Officer is ${formatGeofenceDistance(r.clockOutDistance)} from site.`
+                                          : `Perimeter Variance: ${formatGeofenceDistance(r.clockOutDistance)} from site.`
+                                      }
+                                    >
+                                      <AlertTriangle className={`h-3 w-3 shrink-0 ${isFarBreach ? 'text-rose-600' : 'text-amber-600'}`} />
+                                      {r.clockOutDistance !== undefined
+                                        ? isFarBreach
+                                          ? `${formatGeofenceDistance(r.clockOutDistance)} (Off-Site)`
+                                          : `${formatGeofenceDistance(r.clockOutDistance)} (Out of Geofence)`
+                                        : 'Out of Geofence'}
+                                    </span>
+                                  );
+                                })()
+                              )}
+                            </div>
                           )}
                         </td>
 

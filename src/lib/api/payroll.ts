@@ -22,8 +22,11 @@ export interface Payslip {
   regularPay: number;
   overtimePay: number;
   grossPay: number;
+  taxCode?: string;
   taxDeduction: number;
   nationalInsurance: number;
+  pensionEmployee?: number;
+  pensionEmployer?: number;
   otherDeductions: number;
   netPay: number;
   currency: string;
@@ -52,9 +55,12 @@ export interface PayRun {
   totalGross: number;
   totalTax: number;
   totalNi: number;
+  totalPensionEmployee?: number;
+  totalPensionEmployer?: number;
   totalNet: number;
   totalEmployees: number;
   currency: string;
+  createdBy?: string;
   approvedBy?: string;
   approvedAt?: string;
   paidAt?: string;
