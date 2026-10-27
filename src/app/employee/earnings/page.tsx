@@ -53,6 +53,7 @@ export default function EmployeeEarningsPage() {
   const timesheets = earningsData?.timesheets || [];
   const payslips = earningsData?.payslips || [];
   const recentUnbilledShifts = earningsData?.recentUnbilledShifts || [];
+  const activeShift = earningsData?.activeShift;
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
@@ -79,6 +80,41 @@ export default function EmployeeEarningsPage() {
         </div>
       </div>
 
+      {/* Live Active Duty In-Progress Alert */}
+      {activeShift && (
+        <div className="bg-gradient-to-r from-emerald-50/90 via-teal-50/80 to-purple-50/70 border border-emerald-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-2xs">
+          <div className="flex items-center gap-3.5">
+            <span className="relative flex h-3.5 w-3.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-600"></span>
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                  Duty In Progress
+                </span>
+                <span className="text-xs text-emerald-700 font-semibold">• {activeShift.siteName}</span>
+              </div>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Clocked in at <span className="font-semibold text-slate-800">{new Date(activeShift.clockInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span> • Accruing regular hours in real-time
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 self-start sm:self-auto">
+            <div className="text-right">
+              <span className="block text-[10px] uppercase font-semibold text-emerald-700 tracking-wider">Accruing Live Pay</span>
+              <span className="text-base font-extrabold font-mono text-emerald-700">
+                +£{Number(activeShift.estimatedEarnings).toFixed(2)}
+              </span>
+            </div>
+            <div className="bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-2xs font-mono">
+              {activeShift.elapsedHours} hrs
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 4 Financial Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Estimated Wages */}
@@ -93,7 +129,9 @@ export default function EmployeeEarningsPage() {
           <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-1">
             <span>{summary.pendingHours} hrs worked</span>
             <span className="text-slate-400">•</span>
-            <span className="text-amber-600 font-medium">Pending sign-off</span>
+            <span className="text-amber-600 font-medium">
+              {activeShift ? 'Live duty active' : 'Pending sign-off'}
+            </span>
           </div>
         </div>
 
@@ -186,12 +224,14 @@ export default function EmployeeEarningsPage() {
       {/* Tab 1: Timesheets */}
       {activeTab === 'timesheets' && (
         <div className="bg-white rounded-xl border border-slate-200/80 shadow-2xs overflow-hidden">
-          <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
             <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
               <FileText className="w-4 h-4 text-[#6C5CE7]" />
               Authorized Timesheet Statements
             </div>
-            <span className="text-xs text-slate-500">Weekly & monthly periods</span>
+            <span className="text-xs text-slate-500">
+              Weekly & monthly periods • Draft periods accumulate hours until manager authorization
+            </span>
           </div>
 
           {isLoading ? (
@@ -251,7 +291,7 @@ export default function EmployeeEarningsPage() {
                           }
                           className="capitalize text-xs font-medium"
                         >
-                          {ts.status}
+                          {ts.status === 'draft' ? 'Draft (Accumulating)' : ts.status === 'approved' ? 'Authorized' : ts.status}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -379,9 +419,16 @@ export default function EmployeeEarningsPage() {
                           {inDate.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                         </TableCell>
                         <TableCell className="text-xs text-slate-700 font-mono">
-                          {a.clockOutTime
-                            ? new Date(a.clockOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-                            : '—'}
+                          {a.isActiveDuty ? (
+                            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium text-[11px] border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              In Progress
+                            </span>
+                          ) : a.clockOutTime ? (
+                            new Date(a.clockOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                          ) : (
+                            '—'
+                          )}
                         </TableCell>
                         <TableCell className="text-xs font-semibold text-slate-800 font-mono">
                           {a.totalHours} hrs
@@ -400,12 +447,7 @@ export default function EmployeeEarningsPage() {
       )}
 
       {/* Statutory Guidance Note */}
-      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 flex items-start gap-2.5">
-        <Info className="w-4 h-4 text-[#6C5CE7] shrink-0 mt-0.5" />
-        <div>
-          <span className="font-semibold text-slate-800">UK Statutory Payroll Disclaimer:</span> Estimated wages represent work performed on site and are subject to manager verification before becoming finalized debt. Deductions strictly follow HMRC tax codes (e.g. 1257L), Class 1 National Insurance, and the 5% employee statutory workplace pension auto-enrolment baseline.
-        </div>
-      </div>
+      
 
       {/* Payslip Modal */}
       {selectedPayslip && (

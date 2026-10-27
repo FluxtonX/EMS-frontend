@@ -270,3 +270,44 @@ export async function fetchMyEarnings() {
   const json = await res.json();
   return json.data || json;
 }
+
+export interface MyAttendanceSheetDay {
+  date: string;
+  dayNumber: number;
+  dayName: string;
+  status: 'present' | 'on_duty' | 'absent' | 'leave' | 'off' | 'future';
+  clockIn: string | null;
+  clockOut: string | null;
+  hours: number;
+  siteName: string | null;
+}
+
+export interface MyAttendanceSheetResponse {
+  month: string;
+  summary: {
+    totalDays: number;
+    daysPresent: number;
+    daysAbsent: number;
+    daysOnDuty: number;
+    daysLeave: number;
+    totalHoursWorked: number;
+  };
+  days: MyAttendanceSheetDay[];
+}
+
+export async function fetchMyAttendanceSheet(month?: string): Promise<MyAttendanceSheetResponse> {
+  const url = new URL(`${API_BASE_URL}/me/attendance-sheet`);
+  if (month) url.searchParams.append('month', month);
+  url.searchParams.append('_t', Date.now().toString());
+
+  const res = await fetch(url.toString(), {
+    headers: getAuthHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch attendance register.');
+  }
+  const json = await res.json();
+  return json.data || json;
+}

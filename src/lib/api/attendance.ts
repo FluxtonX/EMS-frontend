@@ -27,14 +27,9 @@ export async function fetchAttendanceRecordsApi(params: {
   if (params.varianceFlag && params.varianceFlag !== 'all')
     url.searchParams.append('varianceFlag', params.varianceFlag);
 
-  url.searchParams.append('_t', Date.now().toString());
 
   const res = await fetch(url.toString(), {
-    headers: {
-      ...getAuthHeaders(),
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-    },
+    headers: getAuthHeaders(),
     cache: 'no-store',
   });
   if (!res.ok) {
@@ -117,6 +112,64 @@ export async function reconcileAttendanceApi(
     throw new Error(errorJson?.error?.message || 'Failed to reconcile attendance.');
   }
   apiCache.invalidate('attendance');
+  const json = await res.json();
+  return json.data;
+}
+
+export interface DailyAttendanceItem {
+  employeeId: string;
+  employee: {
+    id: string;
+    employeeNumber: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+  };
+  site: { id: string; name: string; code: string } | null;
+  shift: { id: string; startTime: string; endTime: string; status: string } | null;
+  status: 'present' | 'on_duty' | 'absent' | 'leave' | 'scheduled' | 'off';
+  clockInTime: string | null;
+  clockOutTime: string | null;
+  breakMinutes: number;
+  totalHours: number;
+  regularHours: number;
+  overtimeHours: number;
+  varianceFlag: string;
+  leaveReason: string | null;
+  attendanceRecordId: string | null;
+}
+
+export interface DailyAttendanceSheetResponse {
+  date: string;
+  summary: {
+    totalEmployees: number;
+    presentCount: number;
+    onDutyCount: number;
+    absentCount: number;
+    onLeaveCount: number;
+    offCount: number;
+  };
+  items: DailyAttendanceItem[];
+}
+
+export async function fetchDailyAttendanceSheetApi(params: {
+  date?: string;
+  siteId?: string;
+} = {}): Promise<DailyAttendanceSheetResponse> {
+  const url = new URL(`${API_BASE_URL}/attendance/daily-sheet`);
+  if (params.date) url.searchParams.append('date', params.date);
+  if (params.siteId && params.siteId !== 'all') url.searchParams.append('siteId', params.siteId);
+  url.searchParams.append('_t', Date.now().toString());
+
+  const res = await fetch(url.toString(), {
+    headers: getAuthHeaders(),
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    const errorJson = await res.json().catch(() => ({}));
+    throw new Error(errorJson?.error?.message || errorJson?.message || 'Failed to fetch daily attendance sheet.');
+  }
   const json = await res.json();
   return json.data;
 }

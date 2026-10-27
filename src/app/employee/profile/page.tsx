@@ -208,9 +208,7 @@ export default function EmployeeProfilePage() {
               <h3 className="text-base font-bold text-slate-900">
                 {profile?.firstName} {profile?.lastName}
               </h3>
-              <p className="text-xs text-slate-500">
-                Upload your official staff picture. This photo will be visible to company owners, managers, and dispatch operators.
-              </p>
+              
               <label
                 htmlFor="avatar-upload"
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[#6C5CE7] bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg cursor-pointer transition-colors mt-2"

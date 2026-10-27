@@ -292,7 +292,7 @@ export default function TimesheetsPage() {
         secondaryActions={
           <Badge variant="info" size="sm" className="gap-1.5 bg-[#F5F3FF] text-[#6C5CE7] border-[#D5D0FA]">
             <Info className="h-3.5 w-3.5 text-[#6C5CE7]" />
-            UK 40h Overtime Standard
+            Daily &gt;8h &amp; Weekly &gt;40h Overtime (1.5x)
           </Badge>
         }
       >
@@ -319,7 +319,7 @@ export default function TimesheetsPage() {
               {stats.totalHours.toFixed(1)} <span className="text-sm font-normal text-[#9096A9]">hrs</span>
             </p>
             <p className="text-[11px] text-[#9096A9] mt-1">
-              {stats.regularHours.toFixed(1)}h regular (≤ 40h) · Net of breaks
+              {stats.regularHours.toFixed(1)}h regular (≤ 8h/day, ≤ 40h/wk) · Net of breaks
             </p>
           </div>
 

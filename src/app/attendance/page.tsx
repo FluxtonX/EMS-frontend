@@ -11,18 +11,19 @@ import {
   CheckCircle2,
   XCircle,
   Coffee,
-  LogOut,
-  SlidersHorizontal,
   FileCheck2,
   Calendar,
   Building2,
   User,
   Plus,
   Loader2,
-  ChevronRight,
   Filter,
-  Info,
   RefreshCw,
+  UserX,
+  UserCheck,
+  CalendarDays,
+  ListFilter,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Badge, Button } from '@/components/ui';
 import { AttendanceRecord, AttendanceStatus, VarianceFlag } from '@/types/attendance';
@@ -31,6 +32,9 @@ import { Employee } from '@/types/employee';
 import { AttendanceMapModal } from '@/components/attendance/AttendanceMapModal';
 import {
   fetchAttendanceRecordsApi,
+  fetchDailyAttendanceSheetApi,
+  DailyAttendanceSheetResponse,
+  DailyAttendanceItem,
   clockInApi,
   startBreakApi,
   endBreakApi,
@@ -56,10 +60,13 @@ export function formatGeofenceDistance(distanceMeters?: number | null): string {
 
 export default function AttendancePage() {
   const { session, isLoading: authLoading } = useAuth();
+  const [viewMode, setViewMode] = useState<'register' | 'raw_punches'>('register');
+  const [dailySheet, setDailySheet] = useState<DailyAttendanceSheetResponse | null>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Filters
@@ -67,16 +74,14 @@ export default function AttendancePage() {
     return new Date().toISOString().split('T')[0];
   });
   const [selectedSiteId, setSelectedSiteId] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [varianceFilter, setVarianceFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'present' | 'absent' | 'on_duty' | 'leave' | 'off'>('all');
 
-  // Modals
+  // Modals & Drawers
   const [isClockInOpen, setIsClockInOpen] = useState(false);
   const [reconcileRecord, setReconcileRecord] = useState<AttendanceRecord | null>(null);
   const [mapTargetRecord, setMapTargetRecord] = useState<AttendanceRecord | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Clock In Form State
+  // Clock In Form
   const [clockInForm, setClockInForm] = useState({
     employeeId: '',
     siteId: '',
@@ -87,7 +92,7 @@ export default function AttendancePage() {
   const [clockInLoading, setClockInLoading] = useState(false);
   const [clockInError, setClockInError] = useState<string | null>(null);
 
-  // Reconcile Form State
+  // Reconcile Form
   const [reconcileForm, setReconcileForm] = useState({
     adjustedTotalHours: '',
     adjustedBreakMinutes: '',
@@ -98,7 +103,7 @@ export default function AttendancePage() {
   const [reconcileLoading, setReconcileLoading] = useState(false);
   const [reconcileError, setReconcileError] = useState<string | null>(null);
 
-  // Fetch static sites and active employees once on session load
+  // Fetch static sites and active employees once
   useEffect(() => {
     if (!authLoading && session) {
       Promise.all([
@@ -115,25 +120,38 @@ export default function AttendancePage() {
     }
   }, [authLoading, session]);
 
+  // Load Data
   const loadData = async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent && !dailySheet) setLoading(true);
     else setIsRefreshing(true);
-    setError(null);
+
     try {
-      const attData = await fetchAttendanceRecordsApi({
+      // 1. Fetch Daily Attendance Register (Present / Absent / Live)
+      const sheet = await fetchDailyAttendanceSheetApi({
+        date: selectedDate || undefined,
+        siteId: selectedSiteId === 'all' ? undefined : selectedSiteId,
+      });
+      if (sheet && Array.isArray(sheet.items)) {
+        setDailySheet(sheet);
+        setError(null);
+      }
+    } catch (err: any) {
+      console.warn('Daily attendance sheet fetch error:', err);
+      if (!silent || !dailySheet) {
+        setError(err?.message || 'Failed to load attendance register.');
+      }
+    }
+
+    try {
+      // 2. Also fetch punch logs
+      const rawRecords = await fetchAttendanceRecordsApi({
         startDate: selectedDate || undefined,
         endDate: selectedDate || undefined,
         siteId: selectedSiteId === 'all' ? undefined : selectedSiteId,
-        status: statusFilter === 'all' ? undefined : statusFilter,
-        varianceFlag: varianceFilter === 'all' ? undefined : varianceFilter,
       });
-
-      setRecords(attData || []);
+      setRecords(rawRecords || []);
     } catch (err: any) {
-      if (!silent) {
-        setError(err?.message || 'Failed to load attendance records from database.');
-        setRecords([]);
-      }
+      console.warn('Raw attendance records fetch error:', err);
     } finally {
       if (!silent) setLoading(false);
       setIsRefreshing(false);
@@ -144,12 +162,10 @@ export default function AttendancePage() {
     if (!authLoading && session) {
       loadData();
 
-      // Lightweight periodic polling every 15s for attendance updates only
       const interval = setInterval(() => {
         loadData(true);
       }, 15000);
 
-      // Instant cross-tab real-time sync when an employee or manager mutates attendance
       const handleStorageUpdate = (e: StorageEvent) => {
         if (e.key === 'workforce_attendance_mutation') {
           loadData(true);
@@ -162,39 +178,15 @@ export default function AttendancePage() {
         window.removeEventListener('storage', handleStorageUpdate);
       };
     }
-  }, [authLoading, session, selectedDate, selectedSiteId, statusFilter, varianceFilter]);
+  }, [authLoading, session, selectedDate, selectedSiteId]);
 
-  // Operational metrics
-  const stats = useMemo(() => {
-    const onDuty = records.filter((r) => r.status === 'clocked_in').length;
-    const onBreak = records.filter((r) => r.status === 'on_break').length;
-    const clockedOut = records.filter((r) => r.status === 'clocked_out' || r.status === 'reconciled').length;
-    const variances = records.filter((r) => r.varianceFlag !== 'none' && r.status !== 'reconciled').length;
-    return { onDuty, onBreak, clockedOut, variances };
-  }, [records]);
-
-  // GPS autofill
-  const handleGetLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setClockInForm((prev) => ({
-            ...prev,
-            latitude: pos.coords.latitude.toFixed(6),
-            longitude: pos.coords.longitude.toFixed(6),
-            accuracy: Math.round(pos.coords.accuracy).toString(),
-          }));
-        },
-        () => {
-          alert('Could not retrieve browser GPS location. Please enter manually.');
-        }
-      );
-    }
-  };
-
-  // Clock In Submit
+  // Handle Clock In Submit
   const handleClockInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!clockInForm.employeeId || !clockInForm.siteId) {
+      setClockInError('Please select both an employee and a site.');
+      return;
+    }
     setClockInLoading(true);
     setClockInError(null);
 
@@ -202,9 +194,9 @@ export default function AttendancePage() {
       await clockInApi({
         employeeId: clockInForm.employeeId,
         siteId: clockInForm.siteId,
-        latitude: clockInForm.latitude ? parseFloat(clockInForm.latitude) : undefined,
-        longitude: clockInForm.longitude ? parseFloat(clockInForm.longitude) : undefined,
-        accuracy: clockInForm.accuracy ? parseFloat(clockInForm.accuracy) : undefined,
+        latitude: clockInForm.latitude ? parseFloat(clockInForm.latitude) : 51.5074,
+        longitude: clockInForm.longitude ? parseFloat(clockInForm.longitude) : -0.1278,
+        accuracy: clockInForm.accuracy ? parseFloat(clockInForm.accuracy) : 10,
       });
 
       setIsClockInOpen(false);
@@ -215,45 +207,16 @@ export default function AttendancePage() {
         longitude: '',
         accuracy: '10',
       });
+      toast.success('Attendance punch logged successfully.');
       await loadData();
     } catch (err: any) {
-      setClockInError(err?.message || 'Failed to clock in.');
+      setClockInError(err?.message || 'Failed to record clock-in.');
     } finally {
       setClockInLoading(false);
     }
   };
 
-  // Break toggles
-  const handleStartBreak = async (id: string) => {
-    try {
-      await startBreakApi(id);
-      await loadData();
-    } catch (err: any) {
-      alert(err?.message || 'Failed to start break.');
-    }
-  };
-
-  const handleEndBreak = async (id: string) => {
-    try {
-      await endBreakApi(id);
-      await loadData();
-    } catch (err: any) {
-      alert(err?.message || 'Failed to end break.');
-    }
-  };
-
-  // Clock Out
-  const handleClockOut = async (id: string) => {
-    if (!confirm('Are you sure you want to clock out this officer?')) return;
-    try {
-      await clockOutApi(id, {});
-      await loadData();
-    } catch (err: any) {
-      alert(err?.message || 'Failed to clock out.');
-    }
-  };
-
-  // Reconcile Drawer Open
+  // Open Reconcile
   const openReconcile = (r: AttendanceRecord) => {
     setReconcileRecord(r);
     setReconcileForm({
@@ -282,6 +245,7 @@ export default function AttendancePage() {
       });
 
       setReconcileRecord(null);
+      toast.success('Shift reconciled successfully.');
       await loadData();
     } catch (err: any) {
       setReconcileError(err?.message || 'Failed to reconcile record.');
@@ -290,450 +254,541 @@ export default function AttendancePage() {
     }
   };
 
-  const getStatusBadge = (status: AttendanceStatus) => {
-    switch (status) {
-      case 'clocked_in':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            On Duty
-          </span>
-        );
-      case 'on_break':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-            <Coffee className="h-3 w-3" />
-            On Break
-          </span>
-        );
-      case 'clocked_out':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-            Clocked Out
-          </span>
-        );
-      case 'reconciled':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-[#EDE9FE] text-[#6C5CE7] border border-[#D5D0FA]">
-            <FileCheck2 className="h-3 w-3" />
-            Reconciled
-          </span>
-        );
-      case 'flagged':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-            <AlertTriangle className="h-3 w-3" />
-            Flagged
-          </span>
-        );
-      case 'rejected':
-        return (
-          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-300">
-            Rejected
-          </span>
-        );
-    }
-  };
+  // Filtered Roster Items
+  const filteredRegisterItems = useMemo(() => {
+    if (!dailySheet?.items) return [];
+    if (statusFilter === 'all') return dailySheet.items;
+    return dailySheet.items.filter((item) => item.status === statusFilter);
+  }, [dailySheet, statusFilter]);
 
-  const getVarianceBadge = (variance: VarianceFlag) => {
-    if (variance === 'none') return null;
-    switch (variance) {
-      case 'out_of_geofence':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-300">
-            <MapPin className="h-3 w-3" />
-            Out of Geofence
-          </span>
-        );
-      case 'late_arrival':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-            <Clock className="h-3 w-3" />
-            Late Arrival
-          </span>
-        );
-      case 'early_departure':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-            Early Departure
-          </span>
-        );
-      case 'overtime':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-[#EDE9FE] text-[#5A4ACD] border border-[#D5D0FA]">
-            Overtime
-          </span>
-        );
-      case 'unmatched_shift':
-        return (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300">
-            Unscheduled
-          </span>
-        );
-    }
+  const summary = dailySheet?.summary || {
+    totalEmployees: employees.length,
+    presentCount: 0,
+    onDutyCount: 0,
+    absentCount: 0,
+    onLeaveCount: 0,
+    offCount: 0,
   };
 
   return (
     <AppShell>
       <PageContainer
-        title="Attendance & Geofenced Time Tracking"
-        subtitle={
-          <div className="flex items-center gap-2">
-            <span>Haversine GPS boundary verification, real-time duty state machine, and supervisor reconciliation.</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Live Geofence Radar
-            </span>
-          </div>
-        }
+        title="Attendance & Daily Roster"
+        subtitle="Comprehensive daily register tracking real-time presence, absences, and active site shifts."
         breadcrumbs={[
           { label: 'Workforce Platform', href: '/dashboard' },
           { label: 'Attendance' },
         ]}
+        secondaryActions={
+          <Button
+            variant="secondary"
+            size="sm"
+            leftIcon={<RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin text-[#6C5CE7]' : ''}`} />}
+            onClick={() => {
+              loadData(true);
+              toast.success('Attendance updated.');
+            }}
+          >
+            Refresh
+          </Button>
+        }
         primaryAction={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              leftIcon={
-                <RefreshCw
-                  className={`h-3.5 w-3.5 ${
-                    isRefreshing ? 'animate-spin text-[#6C5CE7]' : ''
-                  }`}
+          <Button
+            variant="primary"
+            size="sm"
+            leftIcon={<Plus className="h-4 w-4" />}
+            onClick={() => setIsClockInOpen(true)}
+          >
+            Manual Clock-In
+          </Button>
+        }
+      >
+        {/* 4 Clean Executive Metric Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 my-6">
+          {/* Present */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <div className="flex items-center justify-between text-slate-500 text-xs">
+              <span className="font-semibold uppercase tracking-wider">Present Today</span>
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            </div>
+            <p className="text-2xl font-bold text-slate-900 font-mono mt-2">{summary.presentCount}</p>
+            <p className="text-[11px] text-emerald-700 font-medium mt-1">Completed shifts</p>
+          </div>
+
+          {/* Absent */}
+          <div className="bg-white p-5 rounded-2xl border border-rose-200/80 bg-rose-50/20 shadow-2xs">
+            <div className="flex items-center justify-between text-slate-500 text-xs">
+              <span className="font-semibold uppercase tracking-wider text-rose-800">Absent (No Check-in)</span>
+              <UserX className="h-4 w-4 text-rose-600" />
+            </div>
+            <p className="text-2xl font-bold text-rose-600 font-mono mt-2">{summary.absentCount}</p>
+            <p className="text-[11px] text-rose-700 font-medium mt-1">Scheduled or rostered missing</p>
+          </div>
+
+          {/* On Duty */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <div className="flex items-center justify-between text-slate-500 text-xs">
+              <span className="font-semibold uppercase tracking-wider">On Duty (Live)</span>
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-600" />
+              </span>
+            </div>
+            <p className="text-2xl font-bold text-emerald-700 font-mono mt-2">{summary.onDutyCount}</p>
+            <p className="text-[11px] text-slate-500 mt-1">Actively on site right now</p>
+          </div>
+
+          {/* On Leave */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs">
+            <div className="flex items-center justify-between text-slate-500 text-xs">
+              <span className="font-semibold uppercase tracking-wider">Approved Leave</span>
+              <CalendarDays className="h-4 w-4 text-blue-500" />
+            </div>
+            <p className="text-2xl font-bold text-blue-700 font-mono mt-2">{summary.onLeaveCount}</p>
+            <p className="text-[11px] text-slate-500 mt-1">Authorized absence</p>
+          </div>
+        </div>
+
+        {/* View Mode & Filter Controls */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs mb-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-3 border-b border-slate-100">
+            {/* View Mode Switcher */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setViewMode('register')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  viewMode === 'register'
+                    ? 'bg-white text-[#6C5CE7] shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Daily Register (Present / Absent)
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('raw_punches')}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                  viewMode === 'raw_punches'
+                    ? 'bg-white text-[#6C5CE7] shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Raw Punch Radar ({records.length})
+              </button>
+            </div>
+
+            {/* Date Picker & Quick Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                <Calendar className="h-3.5 w-3.5 text-[#6C5CE7]" />
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="text-xs font-semibold text-slate-900 outline-none bg-transparent"
                 />
-              }
-              onClick={() => {
-                loadData(true);
-                toast.success('Attendance records refreshed.');
-              }}
-            >
-              Refresh
-            </Button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
+                  selectedDate === new Date().toISOString().split('T')[0]
+                    ? 'bg-[#6C5CE7] text-white border-[#6C5CE7]'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                Today
+              </button>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <Building2 className="h-3.5 w-3.5 text-[#6C5CE7]" />
+                <select
+                  value={selectedSiteId}
+                  onChange={(e) => setSelectedSiteId(e.target.value)}
+                  className="text-xs border border-slate-200 rounded-lg px-2.5 py-1.5 outline-none bg-slate-50 text-slate-800"
+                >
+                  <option value="all">All Sites</option>
+                  {sites.map((site) => (
+                    <option key={site.id} value={site.id}>
+                      {site.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Filter Tabs (When in Register mode) */}
+          {viewMode === 'register' && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setStatusFilter('all')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  statusFilter === 'all'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                All Roster ({summary.totalEmployees})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter('present')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  statusFilter === 'present'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                }`}
+              >
+                Present ({summary.presentCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter('absent')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  statusFilter === 'absent'
+                    ? 'bg-rose-600 text-white'
+                    : 'bg-rose-50 text-rose-800 hover:bg-rose-100'
+                }`}
+              >
+                Absent ({summary.absentCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter('on_duty')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  statusFilter === 'on_duty'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-purple-50 text-purple-800 hover:bg-purple-100'
+                }`}
+              >
+                On Duty ({summary.onDutyCount})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter('leave')}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  statusFilter === 'leave'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-blue-50 text-blue-800 hover:bg-blue-100'
+                }`}
+              >
+                On Leave ({summary.onLeaveCount})
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Content Section */}
+        {loading && !dailySheet ? (
+          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-slate-200">
+            <Loader2 className="h-6 w-6 text-[#6C5CE7] animate-spin mb-2" />
+            <p className="text-xs text-slate-500 font-medium">Loading attendance register...</p>
+          </div>
+        ) : error && !dailySheet ? (
+          <div className="p-8 bg-white rounded-2xl border border-rose-200 text-center flex flex-col items-center gap-3">
+            <AlertTriangle className="w-8 h-8 text-rose-500" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Attendance Data Unavailable</h3>
+              <p className="text-xs text-rose-600 mt-1 max-w-md">{error}</p>
+            </div>
             <Button
               variant="primary"
               size="sm"
-              leftIcon={<Plus className="h-4 w-4" />}
-              onClick={() => setIsClockInOpen(true)}
+              onClick={() => loadData(false)}
+              className="bg-[#6C5CE7] hover:bg-[#5846DB] text-white text-xs mt-2"
             >
-              Record Clock-In
+              Retry Connection
             </Button>
           </div>
-        }
-      >
-
-        {/* Live Operational Metrics Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 sm:gap-6 my-6">
-          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span className="font-semibold">On Duty Now</span>
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            </div>
-            <p className="text-2xl font-bold text-[#171A2B] mt-2.5">{stats.onDuty}</p>
-            <p className="text-[11px] text-[#9096A9] mt-1">Guards on site</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span className="font-semibold">On Break</span>
-              <Coffee className="h-4.5 w-4.5 text-amber-600" />
-            </div>
-            <p className="text-2xl font-bold text-[#171A2B] mt-2.5">{stats.onBreak}</p>
-            <p className="text-[11px] text-[#9096A9] mt-1">Logged breaks</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span className="font-semibold">Completed (Today)</span>
-              <CheckCircle2 className="h-4.5 w-4.5 text-[#6C5CE7]" />
-            </div>
-            <p className="text-2xl font-bold text-[#6C5CE7] mt-2.5">{stats.clockedOut}</p>
-            <p className="text-[11px] text-[#9096A9] mt-1">Clocked out shifts</p>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)]">
-            <div className="flex items-center justify-between text-[#687086] text-xs">
-              <span className="font-semibold">Pending Variances</span>
-              <AlertTriangle className="h-4.5 w-4.5 text-rose-600" />
-            </div>
-            <p className="text-2xl font-bold text-rose-600 mt-2.5">{stats.variances}</p>
-            <p className="text-[11px] text-[#9096A9] mt-1">Need reconciliation</p>
-          </div>
-        </div>
-
-        {/* Filters & Date Selector */}
-        <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-[#E5E3F2] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(0,0,0,0.05)] my-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-[#FDFCFE] border border-[#E5E3F2] rounded-lg px-2.5 py-1.5">
-              <Calendar className="h-4 w-4 text-[#6C5CE7]" />
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="text-xs font-semibold text-[#171A2B] outline-none bg-transparent"
-              />
+        ) : viewMode === 'register' ? (
+          /* ========================================================================= */
+          /* VIEW 1: DAILY ATTENDANCE REGISTER (PRESENT / ABSENT / ON DUTY)            */
+          /* ========================================================================= */
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <UserCheck className="w-4 h-4 text-[#6C5CE7]" />
+                Daily Attendance Register • {selectedDate}
+              </div>
+              <span className="text-xs text-slate-500 font-medium">
+                Showing {filteredRegisterItems.length} workforce entries
+              </span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                selectedDate === new Date().toISOString().split('T')[0]
-                  ? 'bg-[#6C5CE7] text-white border-[#6C5CE7] shadow-xs'
-                  : 'bg-white text-slate-700 border-[#E5E3F2] hover:bg-[#F5F3FF] hover:border-[#D5D0FA] hover:text-[#6C5CE7]'
-              }`}
-            >
-              Today
-            </button>
+            {filteredRegisterItems.length === 0 ? (
+              <div className="p-12 text-center text-slate-500 text-xs">
+                No employees match the selected status filter for this date.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="px-4 py-3">Employee</th>
+                      <th className="px-4 py-3">Assigned Site</th>
+                      <th className="px-4 py-3">Attendance Status</th>
+                      <th className="px-4 py-3">Clock In</th>
+                      <th className="px-4 py-3">Clock Out</th>
+                      <th className="px-4 py-3">Work Hours</th>
+                      <th className="px-4 py-3">Overtime</th>
+                      <th className="px-4 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredRegisterItems.map((item) => {
+                      const clockInStr = item.clockInTime
+                        ? new Date(item.clockInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                        : '—';
+                      const clockOutStr = item.clockOutTime
+                        ? new Date(item.clockOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                        : item.status === 'on_duty'
+                        ? 'In Progress'
+                        : '—';
 
-            <button
-              type="button"
-              onClick={() => setSelectedDate('')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all ${
-                selectedDate === ''
-                  ? 'bg-[#6C5CE7] text-white border-[#6C5CE7] shadow-xs'
-                  : 'bg-white text-slate-700 border-[#E5E3F2] hover:bg-[#F5F3FF] hover:border-[#D5D0FA] hover:text-[#6C5CE7]'
-              }`}
-            >
-              All Records
-            </button>
-
-            <button
-              type="button"
-              onClick={() => loadData(false)}
-              disabled={loading || isRefreshing}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-white border border-[#E5E3F2] hover:bg-[#F5F3FF] hover:border-[#D5D0FA] hover:text-[#6C5CE7] text-slate-700 shadow-2xs transition-all disabled:opacity-50"
-              title="Refresh Live Attendance"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 text-[#6C5CE7] ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-1.5 text-xs text-[#687086]">
-              <Building2 className="h-3.5 w-3.5 text-[#6C5CE7]" />
-              <select
-                value={selectedSiteId}
-                onChange={(e) => setSelectedSiteId(e.target.value)}
-                className="text-xs border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] text-[#171A2B] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-              >
-                <option value="all">All Sites</option>
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {site.name} ({site.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-xs text-[#687086]">
-              <Filter className="h-3.5 w-3.5 text-[#6C5CE7]" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-xs border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] text-[#171A2B] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-              >
-                <option value="all">All Statuses</option>
-                <option value="clocked_in">On Duty</option>
-                <option value="on_break">On Break</option>
-                <option value="clocked_out">Clocked Out</option>
-                <option value="reconciled">Reconciled</option>
-                <option value="flagged">Flagged</option>
-              </select>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-xs text-[#687086]">
-              <AlertTriangle className="h-3.5 w-3.5 text-[#6C5CE7]" />
-              <select
-                value={varianceFilter}
-                onChange={(e) => setVarianceFilter(e.target.value)}
-                className="text-xs border border-[#E5E3F2] rounded-lg px-2.5 py-1.5 outline-none focus:border-[#6C5CE7] bg-[#FDFCFE] text-[#171A2B] shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-              >
-                <option value="all">All Variances</option>
-                <option value="none">No Variance (Clean)</option>
-                <option value="out_of_geofence">Out of Geofence</option>
-                <option value="late_arrival">Late Arrival</option>
-                <option value="early_departure">Early Departure</option>
-                <option value="overtime">Overtime</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Content Table */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-[#E5E3F2] my-6">
-            <Loader2 className="h-6 w-6 text-[#6C5CE7] animate-spin mb-2" />
-            <p className="text-xs text-[#687086]">Loading attendance radar and timecards...</p>
-          </div>
-        ) : error ? (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs my-6">
-            {error}
-          </div>
-        ) : records.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-12 bg-white rounded-2xl border border-[#E5E3F2] text-center my-6">
-            <Clock className="h-10 w-10 text-[#9096A9] mb-3" />
-            <h3 className="text-sm font-semibold text-[#171A2B]">No attendance records found</h3>
-            <p className="text-xs text-[#687086] mt-1 max-w-sm">
-              No officers have clocked in for this selected date and filter combination.
-            </p>
-            <button
-              onClick={() => setIsClockInOpen(true)}
-              className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#6C5CE7] hover:bg-[#806FF0] text-white rounded-lg text-xs font-medium transition-colors shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Record First Clock-In
-            </button>
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-[#E5E3F2] shadow-sm overflow-hidden my-6">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-[#F5F3FF] border-b border-[#E5E3F2] text-[#687086] font-semibold">
-                  <tr>
-                    <th className="px-4 py-3">Security Officer</th>
-                    <th className="px-4 py-3">Deployment Site</th>
-                    <th className="px-4 py-3">Clock In & Geofence</th>
-                    <th className="px-4 py-3">Clock Out</th>
-                    <th className="px-4 py-3">Break / Net Hours</th>
-                    <th className="px-4 py-3">Status & Variance</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E5E3F2]">
-                  {records.map((r) => {
-                    const clockInTimeStr = new Date(r.clockInTime).toLocaleTimeString('en-GB', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
-                    const clockOutTimeStr = r.clockOutTime
-                      ? new Date(r.clockOutTime).toLocaleTimeString('en-GB', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
-                      : '—';
-
-                    return (
-                      <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                        {/* Officer */}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="h-7 w-7 rounded-full bg-[#EDE9FE] text-[#6C5CE7] flex items-center justify-center font-bold text-xs">
-                              {r.employee?.firstName?.[0]}
-                              {r.employee?.lastName?.[0]}
+                      return (
+                        <tr key={item.employeeId} className="hover:bg-slate-50/70 transition-colors">
+                          {/* Employee */}
+                          <td className="px-4 py-3.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-8 w-8 rounded-full bg-purple-50 text-[#6C5CE7] border border-purple-100 flex items-center justify-center font-bold text-xs shrink-0">
+                                {item.employee?.firstName?.[0]}
+                                {item.employee?.lastName?.[0]}
+                              </div>
+                              <div>
+                                <p className="font-bold text-slate-900 leading-tight">
+                                  {item.employee?.firstName} {item.employee?.lastName}
+                                </p>
+                                <p className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                  {item.employee?.employeeNumber}
+                                </p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="font-semibold text-[#171A2B] leading-tight">
-                                {r.employee?.firstName} {r.employee?.lastName}
-                              </p>
-                              <p className="text-[10px] text-[#687086]">
-                                {r.employee?.employeeNumber}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Site */}
-                        <td className="px-4 py-3">
-                          <p className="font-semibold text-[#171A2B]">{r.site?.name}</p>
-                          <p className="text-[10px] text-[#687086]">{r.site?.code}</p>
-                        </td>
+                          {/* Site */}
+                          <td className="px-4 py-3.5">
+                            <p className="font-semibold text-slate-800">
+                              {item.site?.name || 'Unassigned Site'}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-mono">
+                              {item.shift ? `${item.shift.startTime} - ${item.shift.endTime}` : 'Regular Shift'}
+                            </p>
+                          </td>
 
-                        {/* Clock In */}
-                        <td className="px-4 py-3">
-                          <p className="font-bold text-[#171A2B]">{clockInTimeStr}</p>
-                          <div className="mt-0.5">
-                            {r.clockInVerified ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
-                                <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
-                                {r.clockInDistance !== undefined
-                                  ? `${formatGeofenceDistance(r.clockInDistance)} from site`
-                                  : 'Verified Geofence'}
+                          {/* Status Badge */}
+                          <td className="px-4 py-3.5">
+                            {item.status === 'present' && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                Present
+                              </span>
+                            )}
+
+                            {item.status === 'on_duty' && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-50 text-[#6C5CE7] border border-purple-200">
+                                <span className="h-1.5 w-1.5 rounded-full bg-[#6C5CE7] animate-ping" />
+                                On Duty (Live)
+                              </span>
+                            )}
+
+                            {item.status === 'absent' && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                <XCircle className="h-3 w-3 text-rose-600" />
+                                Absent (No Check-in)
+                              </span>
+                            )}
+
+                            {item.status === 'leave' && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                <CalendarDays className="h-3 w-3 text-blue-600" />
+                                On Leave
+                              </span>
+                            )}
+
+                            {item.status === 'off' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-600">
+                                Rest Day / Off
+                              </span>
+                            )}
+
+                            {item.status === 'scheduled' && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                                Scheduled
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Clock In */}
+                          <td className="px-4 py-3.5 font-mono text-slate-700">
+                            {clockInStr}
+                          </td>
+
+                          {/* Clock Out */}
+                          <td className="px-4 py-3.5 font-mono text-slate-700">
+                            {clockOutStr}
+                          </td>
+
+                          {/* Work Hours */}
+                          <td className="px-4 py-3.5">
+                            <span className="font-bold text-slate-900 font-mono">
+                              {item.totalHours > 0 ? `${item.totalHours} hrs` : '0 hrs'}
+                            </span>
+                          </td>
+
+                          {/* Overtime */}
+                          <td className="px-4 py-3.5">
+                            {item.overtimeHours > 0 ? (
+                              <span className="font-bold text-amber-700 font-mono bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                +{item.overtimeHours} hrs (OT)
                               </span>
                             ) : (
-                              (() => {
-                                const isFarBreach = (r.clockInDistance ?? 0) > 1000;
-                                return (
-                                  <span
-                                    className={`inline-flex items-center gap-1 text-[10px] font-bold ${
-                                      isFarBreach ? 'text-rose-700' : 'text-amber-700'
-                                    }`}
-                                    title={
-                                      isFarBreach
-                                        ? `Remote Off-Site: Officer is ${formatGeofenceDistance(r.clockInDistance)} from site perimeter.`
-                                        : `Perimeter Variance: Officer is ${formatGeofenceDistance(r.clockInDistance)} from site boundary.`
-                                    }
-                                  >
-                                    <AlertTriangle className={`h-3 w-3 shrink-0 ${isFarBreach ? 'text-rose-600' : 'text-amber-600'}`} />
-                                    {r.clockInDistance !== undefined
-                                      ? isFarBreach
-                                        ? `${formatGeofenceDistance(r.clockInDistance)} (Off-Site)`
-                                        : `${formatGeofenceDistance(r.clockInDistance)} (Perimeter Variance)`
-                                      : 'Outside Geofence'}
-                                  </span>
-                                );
-                              })()
+                              <span className="text-slate-400 font-mono">0 hrs</span>
                             )}
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Clock Out */}
-                        <td className="px-4 py-3">
-                          <p className="font-semibold text-[#171A2B]">{clockOutTimeStr}</p>
-                          {r.clockOutTime && (
-                            <div className="mt-0.5">
-                              {r.clockOutVerified ? (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-medium">
-                                  <ShieldCheck className="h-3 w-3 text-emerald-600 shrink-0" />
-                                  {r.clockOutDistance !== undefined
-                                    ? `Verified (${formatGeofenceDistance(r.clockOutDistance)})`
-                                    : 'Verified Geofence'}
-                                </span>
-                              ) : (
-                                (() => {
-                                  const isFarBreach = (r.clockOutDistance ?? 0) > 1000;
+                          {/* Action */}
+                          <td className="px-4 py-3.5 text-right">
+                            {item.status === 'absent' ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setClockInForm((prev) => ({
+                                    ...prev,
+                                    employeeId: item.employeeId,
+                                    siteId: item.site?.id || '',
+                                  }));
+                                  setIsClockInOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold bg-slate-100 hover:bg-[#6C5CE7] hover:text-white text-slate-700 rounded-lg transition-all"
+                              >
+                                <Plus className="h-3 w-3" />
+                                Record Check-In
+                              </button>
+                            ) : (
+                              <div className="inline-flex items-center gap-2 justify-end">
+                                {item.attendanceRecordId && (() => {
+                                  const rec = records.find((r) => r.id === item.attendanceRecordId) || ({
+                                    id: item.attendanceRecordId,
+                                    companyId: '',
+                                    employeeId: item.employeeId,
+                                    siteId: item.site?.id || '',
+                                    clockInTime: item.clockInTime ? new Date(item.clockInTime) : new Date(),
+                                    clockOutTime: item.clockOutTime ? new Date(item.clockOutTime) : undefined,
+                                    clockInVerified: true,
+                                    clockOutVerified: true,
+                                    status: item.status === 'on_duty' ? 'clocked_in' : 'clocked_out',
+                                    totalHours: item.totalHours,
+                                    breakMinutes: item.breakMinutes,
+                                    varianceFlag: item.varianceFlag as any,
+                                    employee: item.employee as any,
+                                    site: item.site as any,
+                                  } as unknown as AttendanceRecord);
+
                                   return (
-                                    <span
-                                      className={`inline-flex items-center gap-1 text-[10px] font-bold ${
-                                        isFarBreach ? 'text-rose-700' : 'text-amber-700'
-                                      }`}
-                                      title={
-                                        isFarBreach
-                                          ? `Remote Clock-Out: Officer is ${formatGeofenceDistance(r.clockOutDistance)} from site.`
-                                          : `Perimeter Variance: ${formatGeofenceDistance(r.clockOutDistance)} from site.`
-                                      }
+                                    <button
+                                      type="button"
+                                      onClick={() => setMapTargetRecord(rec)}
+                                      title="View Live Satellite & Street Map"
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-semibold bg-[#EDE9FE] hover:bg-[#D5D0FA] text-[#6C5CE7] border border-[#D5D0FA] transition-colors shadow-2xs"
                                     >
-                                      <AlertTriangle className={`h-3 w-3 shrink-0 ${isFarBreach ? 'text-rose-600' : 'text-amber-600'}`} />
-                                      {r.clockOutDistance !== undefined
-                                        ? isFarBreach
-                                          ? `${formatGeofenceDistance(r.clockOutDistance)} (Off-Site)`
-                                          : `${formatGeofenceDistance(r.clockOutDistance)} (Out of Geofence)`
-                                        : 'Out of Geofence'}
-                                    </span>
+                                      <MapPin className="h-3 w-3 text-[#6C5CE7]" />
+                                      View Map
+                                    </button>
                                   );
-                                })()
-                              )}
-                            </div>
+                                })()}
+
+                                {item.attendanceRecordId && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const rec = records.find((r) => r.id === item.attendanceRecordId);
+                                      if (rec) openReconcile(rec);
+                                    }}
+                                    className="text-[11px] font-semibold text-[#6C5CE7] hover:underline"
+                                  >
+                                    Reconcile
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* ========================================================================= */
+          /* VIEW 2: RAW PUNCH LOGS & GEOFENCE RADAR                                   */
+          /* ========================================================================= */
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+            <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#6C5CE7]" />
+                Raw GPS Punch Logs ({records.length})
+              </div>
+              <span className="text-xs text-slate-500">Live operational audit trail</span>
+            </div>
+
+            {records.length === 0 ? (
+              <div className="p-12 text-center text-slate-500 text-xs">
+                No raw punches recorded for this date and site selection.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                    <tr>
+                      <th className="px-4 py-3">Officer</th>
+                      <th className="px-4 py-3">Site</th>
+                      <th className="px-4 py-3">Clock In & Geofence</th>
+                      <th className="px-4 py-3">Clock Out</th>
+                      <th className="px-4 py-3">Hours</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {records.map((r) => (
+                      <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="px-4 py-3 font-medium text-slate-900">
+                          {r.employee?.firstName} {r.employee?.lastName}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700">{r.site?.name}</td>
+                        <td className="px-4 py-3 font-mono">
+                          {new Date(r.clockInTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                          {r.clockInVerified ? (
+                            <span className="block text-[10px] text-emerald-600">Verified Geofence</span>
+                          ) : (
+                            <span className="block text-[10px] text-rose-600 font-semibold">Outside Perimeter</span>
                           )}
                         </td>
-
-                        {/* Hours */}
+                        <td className="px-4 py-3 font-mono text-slate-700">
+                          {r.clockOutTime
+                            ? new Date(r.clockOutTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                            : '—'}
+                        </td>
+                        <td className="px-4 py-3 font-bold font-mono text-slate-900">
+                          {r.totalHours} hrs
+                        </td>
                         <td className="px-4 py-3">
-                          <p className="font-bold text-[#171A2B]">{r.totalHours} hrs</p>
-                          <p className="text-[10px] text-[#687086]">
-                            {r.breakMinutes}m unpaid break
-                          </p>
+                          <Badge variant="neutral" className="capitalize text-xs font-medium">
+                            {r.status}
+                          </Badge>
                         </td>
-
-                        {/* Status & Variance */}
-                        <td className="px-4 py-3 space-y-1">
-                          <div>{getStatusBadge(r.status)}</div>
-                          <div>{getVarianceBadge(r.varianceFlag)}</div>
-                        </td>
-
-                        {/* Actions */}
                         <td className="px-4 py-3 text-right">
-                          <div className="inline-flex items-center gap-1.5">
-                            {/* View Map Action (Left Side) */}
+                          <div className="inline-flex items-center gap-1.5 justify-end">
                             <button
                               type="button"
                               onClick={() => setMapTargetRecord(r)}
@@ -743,85 +798,55 @@ export default function AttendancePage() {
                               <MapPin className="h-3 w-3 text-[#6C5CE7]" />
                               View Map
                             </button>
-
-                            {r.status === 'clocked_in' && (
-                              <>
-                                <button
-                                  onClick={() => handleStartBreak(r.id)}
-                                  className="px-2 py-1 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-                                >
-                                  Break
-                                </button>
-                                <button
-                                  onClick={() => handleClockOut(r.id)}
-                                  className="px-2 py-1 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
-                                >
-                                  Clock Out
-                                </button>
-                              </>
-                            )}
-
-                            {r.status === 'on_break' && (
-                              <button
-                                onClick={() => handleEndBreak(r.id)}
-                                className="px-2 py-1 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
-                              >
-                                End Break
-                              </button>
-                            )}
-
                             <button
+                              type="button"
                               onClick={() => openReconcile(r)}
-                              className="px-2 py-1 rounded text-[11px] font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 ml-1"
+                              className="text-[11px] font-semibold text-[#6C5CE7] hover:underline"
                             >
                               Reconcile
                             </button>
                           </div>
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
-        {/* CLOCK-IN SIMULATION MODAL */}
+        {/* Modal: Manual Clock In */}
         {isClockInOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full border border-[#E5E3F2]">
-              <div className="flex items-center justify-between p-4 border-b border-[#E5E3F2]">
-                <div>
-                  <h3 className="text-sm font-bold text-[#171A2B]">Record Guard Clock-In</h3>
-                  <p className="text-xs text-[#687086]">Simulate mobile or kiosk geofence check-in.</p>
-                </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <h3 className="font-bold text-slate-900 text-base">Record Attendance Check-In</h3>
                 <button
+                  type="button"
                   onClick={() => setIsClockInOpen(false)}
-                  className="text-[#687086] hover:text-[#171A2B]"
+                  className="text-slate-400 hover:text-slate-600 text-sm font-bold"
                 >
-                  <XCircle className="h-4 w-4" />
+                  ✕
                 </button>
               </div>
 
-              <form onSubmit={handleClockInSubmit} className="p-4 space-y-4 text-xs">
-                {clockInError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded">
-                    {clockInError}
-                  </div>
-                )}
+              {clockInError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                  {clockInError}
+                </div>
+              )}
 
+              <form onSubmit={handleClockInSubmit} className="space-y-4 text-xs">
                 <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Select Officer *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Select Employee</label>
                   <select
                     value={clockInForm.employeeId}
-                    onChange={(e) =>
-                      setClockInForm({ ...clockInForm, employeeId: e.target.value })
-                    }
+                    onChange={(e) => setClockInForm({ ...clockInForm, employeeId: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 outline-none focus:border-[#6C5CE7]"
                     required
-                    className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                   >
-                    <option value="">-- Choose Officer --</option>
+                    <option value="">-- Choose Employee --</option>
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
                         {emp.firstName} {emp.lastName} ({emp.employeeNumber})
@@ -831,14 +856,14 @@ export default function AttendancePage() {
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">Deployment Site *</label>
+                  <label className="block font-semibold text-slate-700 mb-1">Select Site</label>
                   <select
                     value={clockInForm.siteId}
                     onChange={(e) => setClockInForm({ ...clockInForm, siteId: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 outline-none focus:border-[#6C5CE7]"
                     required
-                    className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
                   >
-                    <option value="">-- Choose Site --</option>
+                    <option value="">-- Choose Deployment Site --</option>
                     {sites.map((site) => (
                       <option key={site.id} value={site.id}>
                         {site.name} ({site.code})
@@ -847,228 +872,102 @@ export default function AttendancePage() {
                   </select>
                 </div>
 
-                {/* GPS Coordinates with Geofence Assistant */}
-                <div className="border border-[#E5E3F2] p-3 rounded bg-[#F5F3FF] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-[#171A2B]">GPS Geolocation</span>
-                    <button
-                      type="button"
-                      onClick={handleGetLocation}
-                      className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#6C5CE7] hover:underline"
-                    >
-                      <MapPin className="h-3 w-3" />
-                      Get Browser Location
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[10px] text-[#687086]">Latitude</label>
-                      <input
-                        type="text"
-                        placeholder="51.5074"
-                        value={clockInForm.latitude}
-                        onChange={(e) =>
-                          setClockInForm({ ...clockInForm, latitude: e.target.value })
-                        }
-                        className="w-full border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7]"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-[#687086]">Longitude</label>
-                      <input
-                        type="text"
-                        placeholder="-0.1278"
-                        value={clockInForm.longitude}
-                        onChange={(e) =>
-                          setClockInForm({ ...clockInForm, longitude: e.target.value })
-                        }
-                        className="w-full border border-[#E5E3F2] rounded px-2 py-1 outline-none focus:border-[#6C5CE7]"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-[10px] text-[#687086]">
-                    Calculated against site geofence radius (200m). Leave blank to simulate manual punch.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E3F2]">
-                  <button
-                    type="button"
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setIsClockInOpen(false)}
-                    className="px-3 py-1.5 rounded border border-[#E5E3F2] text-[#687086] hover:bg-[#F0EEF8]"
+                    type="button"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
                     type="submit"
-                    disabled={clockInLoading}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#6C5CE7] hover:bg-[#806FF0] text-white font-medium transition-colors shadow-sm disabled:opacity-50"
+                    isLoading={clockInLoading}
                   >
-                    {clockInLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Confirm Clock-In
-                  </button>
+                    Save Check-In
+                  </Button>
                 </div>
               </form>
             </div>
           </div>
         )}
 
-        {/* RECONCILE DRAWER / MODAL */}
+        {/* Modal: Reconcile Shift */}
         {reconcileRecord && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-lg w-full border border-[#E5E3F2]">
-              <div className="flex items-center justify-between p-4 border-b border-[#E5E3F2]">
-                <div>
-                  <h3 className="text-sm font-bold text-[#171A2B]">Supervisor Reconciliation</h3>
-                  <p className="text-xs text-[#687086]">
-                    Adjust hours and sign off on attendance variances.
-                  </p>
-                </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <h3 className="font-bold text-slate-900 text-base">Reconcile Attendance Shift</h3>
                 <button
+                  type="button"
                   onClick={() => setReconcileRecord(null)}
-                  className="text-[#687086] hover:text-[#171A2B]"
+                  className="text-slate-400 hover:text-slate-600 text-sm font-bold"
                 >
-                  <XCircle className="h-4 w-4" />
+                  ✕
                 </button>
               </div>
 
-              <form onSubmit={handleReconcileSubmit} className="p-4 space-y-4 text-xs">
-                {reconcileError && (
-                  <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded">
-                    {reconcileError}
-                  </div>
-                )}
-
-                {/* Audit summary */}
-                <div className="bg-[#F5F3FF] p-3 rounded border border-[#E5E3F2] space-y-1">
-                  <p className="font-semibold text-[#171A2B]">
-                    {reconcileRecord.employee?.firstName} {reconcileRecord.employee?.lastName} (
-                    {reconcileRecord.employee?.employeeNumber})
-                  </p>
-                  <p className="text-[11px] text-[#687086]">
-                    Site: {reconcileRecord.site?.name} • In: {new Date(reconcileRecord.clockInTime).toLocaleTimeString('en-GB')}
-                  </p>
-                  <p className="text-[11px] text-[#687086]">
-                    Current Recorded Hours: <span className="font-bold text-[#171A2B]">{reconcileRecord.totalHours} hrs</span> (
-                    {reconcileRecord.breakMinutes}m break)
-                  </p>
+              {reconcileError && (
+                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+                  {reconcileError}
                 </div>
+              )}
 
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block font-semibold text-[#171A2B] mb-1">
-                      Adjusted Total Net Hours *
-                    </label>
-                    <input
-                      type="number"
-                      step="0.25"
-                      min="0"
-                      value={reconcileForm.adjustedTotalHours}
-                      onChange={(e) =>
-                        setReconcileForm({ ...reconcileForm, adjustedTotalHours: e.target.value })
-                      }
-                      required
-                      className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-[#171A2B] mb-1">
-                      Adjusted Break (Minutes)
-                    </label>
-                    <input
-                      type="number"
-                      step="5"
-                      min="0"
-                      value={reconcileForm.adjustedBreakMinutes}
-                      onChange={(e) =>
-                        setReconcileForm({ ...reconcileForm, adjustedBreakMinutes: e.target.value })
-                      }
-                      className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block font-semibold text-[#171A2B] mb-1">
-                      Reconciled Status *
-                    </label>
-                    <select
-                      value={reconcileForm.status}
-                      onChange={(e) =>
-                        setReconcileForm({
-                          ...reconcileForm,
-                          status: e.target.value as any,
-                        })
-                      }
-                      className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
-                    >
-                      <option value="reconciled">Reconciled (Approved)</option>
-                      <option value="flagged">Flagged for Audit</option>
-                      <option value="rejected">Rejected (Unpaid)</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-[#171A2B] mb-1">
-                      Variance Resolution
-                    </label>
-                    <select
-                      value={reconcileForm.varianceFlag}
-                      onChange={(e) =>
-                        setReconcileForm({
-                          ...reconcileForm,
-                          varianceFlag: e.target.value as VarianceFlag,
-                        })
-                      }
-                      className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
-                    >
-                      <option value="none">Resolved (No Variance)</option>
-                      <option value="out_of_geofence">Out of Geofence (Approved exception)</option>
-                      <option value="late_arrival">Late Arrival (Acknowledged)</option>
-                      <option value="early_departure">Early Departure</option>
-                      <option value="overtime">Authorized Overtime</option>
-                    </select>
-                  </div>
+              <form onSubmit={handleReconcileSubmit} className="space-y-4 text-xs">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Adjusted Total Net Hours</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={reconcileForm.adjustedTotalHours}
+                    onChange={(e) => setReconcileForm({ ...reconcileForm, adjustedTotalHours: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 outline-none focus:border-[#6C5CE7]"
+                    required
+                  />
                 </div>
 
                 <div>
-                  <label className="block font-semibold text-[#171A2B] mb-1">
-                    Supervisor Justification Notes *
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={reconcileForm.supervisorNotes}
-                    onChange={(e) =>
-                      setReconcileForm({ ...reconcileForm, supervisorNotes: e.target.value })
-                    }
-                    required
-                    placeholder="Enter detailed reason for manual override (e.g. guard stationed at perimeter gate, approved overtime)..."
-                    className="w-full border border-[#E5E3F2] rounded px-2.5 py-1.5 outline-none focus:border-[#6C5CE7]"
+                  <label className="block font-semibold text-slate-700 mb-1">Adjusted Break Minutes</label>
+                  <input
+                    type="number"
+                    value={reconcileForm.adjustedBreakMinutes}
+                    onChange={(e) => setReconcileForm({ ...reconcileForm, adjustedBreakMinutes: e.target.value })}
+                    className="w-full border border-slate-200 rounded-lg p-2.5 outline-none focus:border-[#6C5CE7]"
                   />
-                  <p className="text-[10px] text-[#687086] mt-0.5">
-                    This note is permanently recorded in the immutable audit trail.
-                  </p>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E5E3F2]">
-                  <button
-                    type="button"
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">Supervisor Audit Note</label>
+                  <textarea
+                    rows={2}
+                    value={reconcileForm.supervisorNotes}
+                    onChange={(e) => setReconcileForm({ ...reconcileForm, supervisorNotes: e.target.value })}
+                    placeholder="Reason for variance adjustment..."
+                    className="w-full border border-slate-200 rounded-lg p-2.5 outline-none focus:border-[#6C5CE7]"
+                    required
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => setReconcileRecord(null)}
-                    className="px-3 py-1.5 rounded border border-[#E5E3F2] text-[#687086] hover:bg-[#F0EEF8]"
+                    type="button"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
                     type="submit"
-                    disabled={reconcileLoading}
-                    className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded bg-[#6C5CE7] hover:bg-[#806FF0] text-white font-medium transition-colors shadow-sm disabled:opacity-50"
+                    isLoading={reconcileLoading}
                   >
-                    {reconcileLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                    Save Reconciliation
-                  </button>
+                    Confirm Reconciliation
+                  </Button>
                 </div>
               </form>
             </div>
